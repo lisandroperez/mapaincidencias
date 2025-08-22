@@ -1,399 +1,154 @@
-<!DOCTYPE html>
-<html lang="es">
+ <!DOCTYPE html>
+<html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Mapa Plan Evacuacion DC YB</title>
-    <!-- Incluir la librería Leaflet -->
-    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <title>Firebase Auth Example</title>
+    <!-- Load Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
     <style>
-        /* Estilos generales para un diseño limpio y moderno */
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700&display=swap');
         body {
             font-family: 'Inter', sans-serif;
-            margin: 0;
-            padding: 0;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            background-color: #f0f0f0;
-            min-height: 100vh;
+            background-color: #f3f4f6;
         }
-
-        h2 {
-            margin-top: 20px;
-            margin-bottom: 10px;
-            color: #333;
-        }
-
-        #map-container {
-            position: relative;
-            width: 100%;
-            max-width: 1200px;
-            height: 80vh;
-            border-radius: 12px;
-            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-            margin-bottom: 20px;
-        }
-
-        #map {
-            width: 100%;
-            height: 100%;
-            border-radius: 12px;
-        }
-
-        #controls {
-            margin: 10px 0;
-            display: flex;
-            justify-content: center;
-        }
-
-        #controls button {
-            padding: 10px 20px;
-            font-size: 16px;
-            border: none;
-            border-radius: 25px;
-            background-color: #0078FF;
-            color: white;
-            cursor: pointer;
-            transition: background-color 0.3s, transform 0.2s;
-            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-        }
-
-        #controls button:hover {
-            background-color: #005ec5;
-            transform: translateY(-2px);
-        }
-
-        /* Estilos para el toast (notificación) */
-        #toast {
-            position: fixed;
-            top: 20px;
-            right: 20px;
-            background-color: #333;
-            color: white;
-            padding: 12px 20px;
-            border-radius: 8px;
-            opacity: 0;
-            transition: opacity 0.5s ease-in-out;
-            z-index: 2000;
-        }
-
-        #toast.show {
-            opacity: 1;
-        }
-        
-        .popup-buttons-container {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 5px;
-            margin-top: 10px;
-        }
-
-        .popup-buttons-container button {
-            border: none;
-            padding: 8px 12px;
-            border-radius: 6px;
-            cursor: pointer;
-            font-size: 12px;
-            transition: transform 0.1s;
-        }
-        
-        .popup-buttons-container button:hover {
-             transform: translateY(-1px);
-        }
-
-        /* Estilos para la leyenda */
-        #legend {
-            background: white;
-            padding: 15px;
-            border-radius: 12px;
-            box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
-            font-size: 14px;
-            line-height: 20px;
-            position: absolute;
-            bottom: 15px;
-            right: 15px;
-            z-index: 1000;
-        }
-
-        .legend-item {
-            display: flex;
-            align-items: center;
-            margin-bottom: 5px;
-        }
-
-        .legend-icon {
-            width: 22px;
-            height: 22px;
-            margin-right: 8px;
-            border-radius: 50%;
-            border: 2px solid white;
-        }
-
-        /* Estilos para la etiqueta de título del marcador */
-        .marker-label {
-            position: absolute;
-            top: -25px;
-            left: 50%;
-            transform: translateX(-50%);
-            white-space: nowrap;
-            background: rgba(255, 255, 255, 0.8);
-            padding: 3px 6px;
-            border-radius: 4px;
-            font-size: 12px;
-            font-weight: bold;
-            color: #333;
-            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
-        }
-
-        .leaflet-marker-icon .custom-pin {
-            position: relative; /* Necesario para el posicionamiento del label */
-        }
-        
     </style>
 </head>
-<body>
-    <h2>Mapa Plan Evacuacion DC YB</h2>
-    <div id="controls">
-        <button id="addMarkerBtn">➕ Agregar marcador</button>
+<body class="flex items-center justify-center min-h-screen p-4 bg-gray-100">
+
+    <div id="app" class="bg-white p-8 rounded-lg shadow-xl max-w-sm w-full text-center">
+        <h1 class="text-3xl font-bold mb-6 text-gray-800">Firebase Authentication</h1>
+
+        <!-- Loading state -->
+        <div id="loading-state" class="flex flex-col items-center justify-center p-4">
+            <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900 mb-2"></div>
+            <p class="text-gray-600">Loading...</p>
+        </div>
+
+        <!-- Authenticated state -->
+        <div id="authenticated-state" class="space-y-4" style="display: none;">
+            <p class="text-lg text-gray-700">You are successfully signed in!</p>
+            <p class="text-sm text-gray-500 break-all">
+                Your User ID: <span id="user-id" class="font-mono bg-gray-100 p-2 rounded-md block mt-2"></span>
+            </p>
+        </div>
+
+        <!-- Unauthenticated state -->
+        <div id="unauthenticated-state" class="space-y-4" style="display: none;">
+            <p class="text-lg text-gray-700 mb-4">Please click the button to sign in.</p>
+            <button id="sign-in-btn" class="w-full bg-indigo-600 text-white font-semibold py-3 px-4 rounded-md hover:bg-indigo-700 transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2">
+                Sign In
+            </button>
+        </div>
+
+        <!-- Error message display area -->
+        <div id="error-message" class="text-red-500 font-medium mt-4 p-3 bg-red-100 rounded-md" style="display: none;"></div>
     </div>
-    <div id="map-container">
-        <div id="map"></div>
-    </div>
-    <div id="toast"></div>
 
-    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-    <script>
-        document.addEventListener('DOMContentLoaded', () => {
+    <!-- Firebase SDK Imports -->
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
-            // --- UI Helpers ---
-            const toast = (message) => {
-                const toastEl = document.getElementById('toast');
-                toastEl.textContent = message;
-                toastEl.classList.add('show');
-                setTimeout(() => {
-                    toastEl.classList.remove('show');
-                }, 2000);
-            };
+        // Global variables provided by the environment
+        const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
+        const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : {};
+        const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
 
-            // --- Inicializar mapa ---
-            const map = L.map('map').setView([-26.816, -65.216], 13);
-            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-                attribution: '&copy; OpenStreetMap contributors'
-            }).addTo(map);
+        // DOM element references
+        const loadingStateDiv = document.getElementById('loading-state');
+        const authenticatedStateDiv = document.getElementById('authenticated-state');
+        const unauthenticatedStateDiv = document.getElementById('unauthenticated-state');
+        const userIdSpan = document.getElementById('user-id');
+        const signInBtn = document.getElementById('sign-in-btn');
+        const errorMessageDiv = document.getElementById('error-message');
 
-            // --- Almacén de datos y marcadores ---
-            const markersData = new Map();
-            const markers = new Map();
-            let nextMarkerId = 1;
+        /**
+         * Function to show an error message in the UI.
+         * @param {string} message - The error message to display.
+         */
+        function displayError(message) {
+            errorMessageDiv.textContent = message;
+            errorMessageDiv.style.display = 'block';
+        }
 
-            // --- Colores y tipos de íconos ---
-            const COLOR_MAP = {
-                'Tiene': 'blue',
-                'No tiene': 'red',
-                'A verificar': 'green',
-                'Falta solicitar': 'gold'
-            };
-            
-            const TYPE_MAP = {
-                'escuela': '🎓',
-                'salon': '🎉',
-                'infantil': '🧸'
-            };
+        // Initialize Firebase services
+        let auth = null;
+        let db = null;
+        try {
+            const app = initializeApp(firebaseConfig);
+            auth = getAuth(app);
+            db = getFirestore(app);
+            console.log("Firebase services initialized successfully.");
+        } catch (error) {
+            console.error("Firebase initialization failed:", error);
+            displayError(`Error initializing Firebase: ${error.message}`);
+        }
 
-            // Función para crear un icono de marcador con etiqueta
-            const customIcon = (data) => {
-                const color = COLOR_MAP[data.state] || 'blue';
-                const emoji = TYPE_MAP[data.type] || '📍';
-                return L.divIcon({
-                    className: "custom-pin",
-                    html: `
-                        <div style='position:relative;width:30px;height:30px;'>
-                            <div class="marker-label">${data.name}</div>
-                            <div style='background:${color};width:30px;height:30px;border-radius:50%;border:2px solid white;display:flex;align-items:center;justify-content:center;font-size:18px;'>${emoji}</div>
-                        </div>
-                    `,
-                    iconSize: [30, 30],
-                    iconAnchor: [15, 45] // Ajustado para centrar el icono y la etiqueta
-                });
-            };
-
-            // --- Función para crear el contenido del popup de vista ---
-            function createViewPopupContent(data) {
-                const contentDiv = document.createElement('div');
-                
-                contentDiv.innerHTML = `
-                    <div style="font-family: inherit; font-size: 14px;">
-                        <h4><b>${data.name}</b></h4>
-                        <p>Tipo: ${data.type}</p>
-                        <p>Estado: ${data.state}</p>
-                        <p>Dirección: ${data.address || 'No especificada'}</p>
-                        <div class="popup-buttons-container">
-                            <button id="editBtn" style="background-color: #fca5a5; color: black;">✏️ Editar</button>
-                            <button id="deleteBtn" style="background-color: #ef4444; color: white;">🗑️ Eliminar</button>
-                        </div>
-                    </div>
-                `;
-
-                contentDiv.querySelector('#editBtn').addEventListener('click', () => editMarker(data.id));
-                contentDiv.querySelector('#deleteBtn').addEventListener('click', () => deleteMarker(data.id));
-
-                return contentDiv;
+        /**
+         * Main function to handle authentication flow.
+         * We use onAuthStateChanged to reliably handle the auth state.
+         */
+        function handleAuthStateChange() {
+            if (!auth) {
+                console.error("Auth is not initialized.");
+                displayError("Authentication service is not ready.");
+                return;
             }
 
-            // --- Función para crear el contenido del popup de edición ---
-            function createEditPopupContent(data) {
-                const contentDiv = document.createElement('div');
-                contentDiv.innerHTML = `
-                    <div style="font-family: inherit; font-size: 14px; padding: 5px;">
-                        <h4><b>Editar marcador</b></h4>
-                        <label style="display: block; margin-bottom: 8px;">
-                            Nombre: <input id="nameInput" value="${data.name}" style="width: 100%; box-sizing: border-box; padding: 5px; border-radius: 4px; border: 1px solid #ccc;"/>
-                        </label>
-                        <label style="display: block; margin-bottom: 8px;">
-                            Tipo: 
-                            <select id="typeSelect" style="width: 100%; box-sizing: border-box; padding: 5px; border-radius: 4px; border: 1px solid #ccc;">
-                                <option value="escuela" ${data.type==="escuela"?"selected":""}>Escuela</option>
-                                <option value="salon" ${data.type==="salon"?"selected":""}>Salón de fiestas</option>
-                                <option value="infantil" ${data.type==="infantil"?"selected":""}>Salón infantil</option>
-                            </select>
-                        </label>
-                        <label style="display: block; margin-bottom: 8px;">
-                            Estado: 
-                            <select id="stateSelect" style="width: 100%; box-sizing: border-box; padding: 5px; border-radius: 4px; border: 1px solid #ccc;">
-                                <option value="Tiene" ${data.state==="Tiene"?"selected":""}>Tiene</option>
-                                <option value="No tiene" ${data.state==="No tiene"?"selected":""}>No tiene</option>
-                                <option value="A verificar" ${data.state==="A verificar"?"selected":""}>A verificar</option>
-                                <option value="Falta solicitar" ${data.state==="Falta solicitar"?"selected":""}>Falta solicitar</option>
-                            </select>
-                        </label>
-                        <label style="display: block; margin-bottom: 8px;">
-                            Dirección: <input id="addressInput" value="${data.address || ''}" style="width: 100%; box-sizing: border-box; padding: 5px; border-radius: 4px; border: 1px solid #ccc;"/>
-                        </label>
-                        <div style="margin-top: 10px;">
-                            <button id="saveBtn" style="background-color: #22c55e; color: white; border: none; padding: 8px 12px; border-radius: 6px; cursor: pointer;">💾 Guardar</button>
-                        </div>
-                    </div>
-                `;
+            // Listen for authentication state changes
+            onAuthStateChanged(auth, async (user) => {
+                // Hide loading state once auth state is determined
+                loadingStateDiv.style.display = 'none';
 
-                contentDiv.querySelector('#saveBtn').addEventListener('click', () => {
-                    const newName = contentDiv.querySelector('#nameInput').value;
-                    const newType = contentDiv.querySelector('#typeSelect').value;
-                    const newState = contentDiv.querySelector('#stateSelect').value;
-                    const newAddress = contentDiv.querySelector('#addressInput').value;
-                    
-                    data.name = newName || 'Nuevo Marcador';
-                    data.type = newType;
-                    data.state = newState;
-                    data.address = newAddress;
-                    
-                    // El marcador no se mueve al guardar. Su posición es determinada por el usuario al arrastrarlo.
-                    addOrUpdateOnMap(data);
-                    markers.get(data.id).closePopup();
-                    toast("¡Marcador guardado!");
-                });
-                
-                return contentDiv;
-            }
-            
-            // --- Función principal para agregar/actualizar marcadores ---
-            function addOrUpdateOnMap(data, openEdit = false) {
-                let marker = markers.get(data.id);
-                if (!marker) {
-                    marker = L.marker([data.lat, data.lng], {
-                        icon: customIcon(data),
-                        draggable: true
-                    }).addTo(map);
-
-                    marker.on("dragend", (e) => {
-                        const ll = e.target.getLatLng();
-                        data.lat = ll.lat;
-                        data.lng = ll.lng;
-                        // Vuelve a enlazar el popup para reflejar la dirección actualizada, si la hay.
-                        marker.bindPopup(createViewPopupContent(data));
-                        markersData.set(data.id, data);
-                    });
-                    
-                    markers.set(data.id, marker);
+                if (user) {
+                    // User is signed in. Update UI for authenticated state.
+                    console.log("User is signed in with UID:", user.uid);
+                    userIdSpan.textContent = user.uid;
+                    authenticatedStateDiv.style.display = 'block';
+                    unauthenticatedStateDiv.style.display = 'none';
                 } else {
-                    marker.setIcon(customIcon(data));
-                    marker.setLatLng([data.lat, data.lng]);
+                    // No user is signed in. Update UI for unauthenticated state.
+                    console.log("No user is signed in.");
+                    authenticatedStateDiv.style.display = 'none';
+                    unauthenticatedStateDiv.style.display = 'block';
                 }
-                
-                markersData.set(data.id, data);
-                marker.bindPopup(openEdit ? createEditPopupContent(data) : createViewPopupContent(data));
-                
-                if (openEdit) {
-                    marker.openPopup();
-                }
-            }
-
-            // --- Funciones de edición (accesibles globalmente) ---
-            window.editMarker = function(id) {
-                const data = markersData.get(id);
-                if (data) addOrUpdateOnMap(data, true);
-            };
-
-            window.deleteMarker = function(id) {
-                const marker = markers.get(id);
-                if (!marker) return;
-                map.removeLayer(marker);
-                markers.delete(id);
-                markersData.delete(id);
-                toast("Marcador eliminado.");
-            };
-            
-            // --- Botón para agregar marcador en el centro ---
-            document.getElementById("addMarkerBtn").addEventListener("click", function(){
-                const center = map.getCenter();
-                const newMarkerData = {
-                    id: `temp-${nextMarkerId++}`,
-                    name: "Nuevo marcador",
-                    type: "escuela",
-                    state: "Tiene",
-                    address: "",
-                    lat: center.lat,
-                    lng: center.lng
-                };
-                addOrUpdateOnMap(newMarkerData, true);
             });
+        }
 
-            // --- Marcadores iniciales ---
-            const initialMarkers = [
-                {id: "1", name:"Escuela República de Italia", type:"escuela", state:"Tiene", address:"Escuela República de Italia, Av. Belgrano 3450", lat:-26.82, lng:-65.22},
-                {id: "2", name:"Escuela San Agustín", type:"escuela", state:"A verificar", address:"Escuela San Agustín, Av. Roca 123", lat:-26.819, lng:-65.215},
-                {id: "3", name:"Salón de Fiestas", type:"salon", state:"No tiene", address:"Salón de Fiestas, Viamonte 789", lat:-26.817, lng:-65.213},
-                {id: "4", name:"Salón Infantil", type:"infantil", state:"Falta solicitar", address:"Salón Infantil, Av. Sarmiento 1011", lat:-26.815, lng:-65.211}
-            ];
+        /**
+         * Handles the sign-in button click.
+         */
+        async function handleSignIn() {
+            loadingStateDiv.style.display = 'flex';
+            unauthenticatedStateDiv.style.display = 'none';
+            errorMessageDiv.style.display = 'none';
 
-            initialMarkers.forEach(markerData => addOrUpdateOnMap(markerData));
+            try {
+                if (initialAuthToken) {
+                    await signInWithCustomToken(auth, initialAuthToken);
+                    console.log("Signed in with custom token.");
+                } else {
+                    await signInAnonymously(auth);
+                    console.log("Signed in anonymously.");
+                }
+            } catch (error) {
+                console.error("Sign-in failed:", error);
+                displayError(`Sign-in failed: ${error.message}`);
+                // Re-display the sign-in button on error
+                loadingStateDiv.style.display = 'none';
+                unauthenticatedStateDiv.style.display = 'block';
+            }
+        }
 
-            // --- Leyenda ---
-            const legend = L.control({position: 'bottomright'});
-            legend.onAdd = function (map) {
-                const div = L.DomUtil.create('div', 'info legend');
-                div.innerHTML = `
-                    <div id="legend">
-                        <strong>Glosario</strong>
-                        <div class="legend-item"><div class="legend-icon" style="background:${COLOR_MAP['Tiene']};"></div>Plan de evacuación: Tiene</div>
-                        <div class="legend-item"><div class="legend-icon" style="background:${COLOR_MAP['No tiene']};"></div>Plan de evacuación: No tiene</div>
-                        <div class="legend-item"><div class="legend-icon" style="background:${COLOR_MAP['A verificar']};"></div>Plan de evacuación: A verificar</div>
-                        <div class="legend-item"><div class="legend-icon" style="background:${COLOR_MAP['Falta solicitar']};"></div>Plan de evacuación: Falta solicitar</div>
-                        <div class="legend-item">🎓 Escuela</div>
-                        <div class="legend-item">🎉 Salón de Fiestas</div>
-                        <div class="legend-item">🧸 Salón Infantil</div>
-                    </div>
-                `;
-                return div;
-            };
-            legend.addTo(map);
+        // Attach event listener to the sign-in button
+        if (signInBtn) {
+            signInBtn.addEventListener('click', handleSignIn);
+        }
 
-        });
+        // Start the authentication state listener
+        handleAuthStateChange();
     </script>
 </body>
 </html>
-
-</body>
-</html>
-
-
