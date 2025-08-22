@@ -1,156 +1,399 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Mapa Interactivo - Plan de Evacuación</title>
-  <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
-  <style>
-    body { font-family: Arial, sans-serif; margin: 20px; background: #f9f9f9; }
-    h2 { text-align: center; margin-bottom: 15px; }
-    #map-container { position: relative; width: 100%; max-width: 1200px; height: 80vh; border-radius: 12px; margin: auto; margin-bottom: 20px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
-    #map { width: 100%; height: 100%; border-radius: 12px; }
-    #legend { max-width: 1200px; margin: auto; background: white; padding: 15px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
-    .legend-title { font-weight: bold; margin-bottom: 8px; }
-    .legend-item { display: flex; align-items: center; margin-bottom: 5px; }
-    .legend-color { width: 18px; height: 18px; border-radius: 50%; margin-right: 8px; }
-    .blue { background: blue; } .red { background: red; } .green { background: green; } .yellow { background: yellow; }
-    .popup-form-container { width: 220px; }
-    .popup-form-container input, .popup-form-container textarea, .popup-form-container select { width: 95%; margin-bottom: 10px; padding: 5px; border: 1px solid #ccc; border-radius: 4px; }
-    .popup-form-container button { width: 100%; padding: 8px; margin-bottom: 5px; border: none; border-radius: 4px; cursor: pointer; }
-    .save-btn { background-color: #28a745; color: white; }
-    .delete-btn { background-color: #dc3545; color: white; }
-    .popup-form-container button:hover { opacity: 0.85; }
-    #context-menu { position: absolute; display: none; background: white; border-radius: 5px; box-shadow: 0 2px 10px rgba(0,0,0,0.2); z-index: 1000; padding: 5px 0; }
-    .context-menu-item { padding: 8px 15px; cursor: pointer; display: flex; align-items: center; }
-    .context-menu-item:hover { background-color: #f0f0f0; }
-  </style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mapa Plan Evacuacion DC YB</title>
+    <!-- Incluir la librería Leaflet -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <style>
+        /* Estilos generales para un diseño limpio y moderno */
+        body {
+            font-family: 'Inter', sans-serif;
+            margin: 0;
+            padding: 0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            background-color: #f0f0f0;
+            min-height: 100vh;
+        }
+
+        h2 {
+            margin-top: 20px;
+            margin-bottom: 10px;
+            color: #333;
+        }
+
+        #map-container {
+            position: relative;
+            width: 100%;
+            max-width: 1200px;
+            height: 80vh;
+            border-radius: 12px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            margin-bottom: 20px;
+        }
+
+        #map {
+            width: 100%;
+            height: 100%;
+            border-radius: 12px;
+        }
+
+        #controls {
+            margin: 10px 0;
+            display: flex;
+            justify-content: center;
+        }
+
+        #controls button {
+            padding: 10px 20px;
+            font-size: 16px;
+            border: none;
+            border-radius: 25px;
+            background-color: #0078FF;
+            color: white;
+            cursor: pointer;
+            transition: background-color 0.3s, transform 0.2s;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        }
+
+        #controls button:hover {
+            background-color: #005ec5;
+            transform: translateY(-2px);
+        }
+
+        /* Estilos para el toast (notificación) */
+        #toast {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background-color: #333;
+            color: white;
+            padding: 12px 20px;
+            border-radius: 8px;
+            opacity: 0;
+            transition: opacity 0.5s ease-in-out;
+            z-index: 2000;
+        }
+
+        #toast.show {
+            opacity: 1;
+        }
+        
+        .popup-buttons-container {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 5px;
+            margin-top: 10px;
+        }
+
+        .popup-buttons-container button {
+            border: none;
+            padding: 8px 12px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 12px;
+            transition: transform 0.1s;
+        }
+        
+        .popup-buttons-container button:hover {
+             transform: translateY(-1px);
+        }
+
+        /* Estilos para la leyenda */
+        #legend {
+            background: white;
+            padding: 15px;
+            border-radius: 12px;
+            box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
+            font-size: 14px;
+            line-height: 20px;
+            position: absolute;
+            bottom: 15px;
+            right: 15px;
+            z-index: 1000;
+        }
+
+        .legend-item {
+            display: flex;
+            align-items: center;
+            margin-bottom: 5px;
+        }
+
+        .legend-icon {
+            width: 22px;
+            height: 22px;
+            margin-right: 8px;
+            border-radius: 50%;
+            border: 2px solid white;
+        }
+
+        /* Estilos para la etiqueta de título del marcador */
+        .marker-label {
+            position: absolute;
+            top: -25px;
+            left: 50%;
+            transform: translateX(-50%);
+            white-space: nowrap;
+            background: rgba(255, 255, 255, 0.8);
+            padding: 3px 6px;
+            border-radius: 4px;
+            font-size: 12px;
+            font-weight: bold;
+            color: #333;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+        }
+
+        .leaflet-marker-icon .custom-pin {
+            position: relative; /* Necesario para el posicionamiento del label */
+        }
+        
+    </style>
 </head>
 <body>
-  <h2>Mapa - Plan de Evacuación</h2>
-  <div id="map-container">
-    <div id="map"></div>
-    <div id="context-menu"></div>
-  </div>
-  <div id="legend">
-    <div class="legend-title">Glosario - Plan de Evacuación</div>
-    <div class="legend-item"><div class="legend-color blue"></div> Azul: Sí tiene</div>
-    <div class="legend-item"><div class="legend-color red"></div> Rojo: No tiene</div>
-    <div class="legend-item"><div class="legend-color green"></div> Verde: A verificar</div>
-    <div class="legend-item"><div class="legend-color yellow"></div> Amarillo: Falta solicitar</div>
-  </div>
+    <h2>Mapa Plan Evacuacion DC YB</h2>
+    <div id="controls">
+        <button id="addMarkerBtn">➕ Agregar marcador</button>
+    </div>
+    <div id="map-container">
+        <div id="map"></div>
+    </div>
+    <div id="toast"></div>
 
-  <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
-  <script>
-    let map;
-    let icons = {};
-    let newMarkers = [];
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
 
-    function initApp() {
-      map = L.map('map').setView([-26.8241, -65.2226], 13);
-      const contextMenu = document.getElementById('context-menu');
+            // --- UI Helpers ---
+            const toast = (message) => {
+                const toastEl = document.getElementById('toast');
+                toastEl.textContent = message;
+                toastEl.classList.add('show');
+                setTimeout(() => {
+                    toastEl.classList.remove('show');
+                }, 2000);
+            };
 
-      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-        attribution: '&copy; OpenStreetMap contributors'
-      }).addTo(map);
+            // --- Inicializar mapa ---
+            const map = L.map('map').setView([-26.816, -65.216], 13);
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                attribution: '&copy; OpenStreetMap contributors'
+            }).addTo(map);
 
-      icons = {
-        blue: new L.Icon({ iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-blue.png', shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/0.7.7/images/marker-shadow.png', iconSize: [25, 41], iconAnchor: [12, 41], popupAnchor: [1, -34], shadowSize: [41, 41] }),
-        red: new L.Icon({ iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-red.png', shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/0.7.7/images/marker-shadow.png', iconSize: [25, 41], iconAnchor: [12, 41], popupAnchor: [1, -34], shadowSize: [41, 41] }),
-        green: new L.Icon({ iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-green.png', shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/0.7.7/images/marker-shadow.png', iconSize: [25, 41], iconAnchor: [12, 41], popupAnchor: [1, -34], shadowSize: [41, 41] }),
-        yellow: new L.Icon({ iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-yellow.png', shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/0.7.7/images/marker-shadow.png', iconSize: [25, 41], iconAnchor: [12, 41], popupAnchor: [1, -34], shadowSize: [41, 41] })
-      };
+            // --- Almacén de datos y marcadores ---
+            const markersData = new Map();
+            const markers = new Map();
+            let nextMarkerId = 1;
 
-      const locations = [
-        { lat: -26.8160, lng: -65.2220, name: 'Plaza Independencia', status: 'blue', desc: 'Plan de evacuación completo.' },
-        { lat: -26.8315, lng: -65.2079, name: 'Parque 9 de Julio', status: 'red', desc: 'No cuenta con plan.' },
-        { lat: -26.8368, lng: -65.2285, name: 'Casa de Gobierno', status: 'green', desc: 'Plan en proceso de verificación.' },
-      ];
+            // --- Colores y tipos de íconos ---
+            const COLOR_MAP = {
+                'Tiene': 'blue',
+                'No tiene': 'red',
+                'A verificar': 'green',
+                'Falta solicitar': 'gold'
+            };
+            
+            const TYPE_MAP = {
+                'escuela': '🎓',
+                'salon': '🎉',
+                'infantil': '🧸'
+            };
 
-      locations.forEach(loc => {
-        addMarker([loc.lat, loc.lng], loc.status, loc.name, loc.desc);
-      });
+            // Función para crear un icono de marcador con etiqueta
+            const customIcon = (data) => {
+                const color = COLOR_MAP[data.state] || 'blue';
+                const emoji = TYPE_MAP[data.type] || '📍';
+                return L.divIcon({
+                    className: "custom-pin",
+                    html: `
+                        <div style='position:relative;width:30px;height:30px;'>
+                            <div class="marker-label">${data.name}</div>
+                            <div style='background:${color};width:30px;height:30px;border-radius:50%;border:2px solid white;display:flex;align-items:center;justify-content:center;font-size:18px;'>${emoji}</div>
+                        </div>
+                    `,
+                    iconSize: [30, 30],
+                    iconAnchor: [15, 45] // Ajustado para centrar el icono y la etiqueta
+                });
+            };
 
-      map.on('contextmenu', function(e) {
-        e.originalEvent.preventDefault();
-        contextMenu.style.left = e.containerPoint.x + 'px';
-        contextMenu.style.top = e.containerPoint.y + 'px';
-        contextMenu.innerHTML = `
-          <div class="context-menu-item" data-color="blue"><div class="legend-color blue"></div>Añadir Marcador Azul</div>
-          <div class="context-menu-item" data-color="green"><div class="legend-color green"></div>Añadir Marcador Verde</div>
-          <div class="context-menu-item" data-color="yellow"><div class="legend-color yellow"></div>Añadir Marcador Amarillo</div>
-          <div class="context-menu-item" data-color="red"><div class="legend-color red"></div>Añadir Marcador Rojo</div>
-        `;
-        contextMenu.style.display = 'block';
-        document.querySelectorAll('.context-menu-item').forEach(item => {
-          item.addEventListener('click', function() {
-            const color = this.getAttribute('data-color');
-            addMarker(e.latlng, color);
-            contextMenu.style.display = 'none';
-          });
+            // --- Función para crear el contenido del popup de vista ---
+            function createViewPopupContent(data) {
+                const contentDiv = document.createElement('div');
+                
+                contentDiv.innerHTML = `
+                    <div style="font-family: inherit; font-size: 14px;">
+                        <h4><b>${data.name}</b></h4>
+                        <p>Tipo: ${data.type}</p>
+                        <p>Estado: ${data.state}</p>
+                        <p>Dirección: ${data.address || 'No especificada'}</p>
+                        <div class="popup-buttons-container">
+                            <button id="editBtn" style="background-color: #fca5a5; color: black;">✏️ Editar</button>
+                            <button id="deleteBtn" style="background-color: #ef4444; color: white;">🗑️ Eliminar</button>
+                        </div>
+                    </div>
+                `;
+
+                contentDiv.querySelector('#editBtn').addEventListener('click', () => editMarker(data.id));
+                contentDiv.querySelector('#deleteBtn').addEventListener('click', () => deleteMarker(data.id));
+
+                return contentDiv;
+            }
+
+            // --- Función para crear el contenido del popup de edición ---
+            function createEditPopupContent(data) {
+                const contentDiv = document.createElement('div');
+                contentDiv.innerHTML = `
+                    <div style="font-family: inherit; font-size: 14px; padding: 5px;">
+                        <h4><b>Editar marcador</b></h4>
+                        <label style="display: block; margin-bottom: 8px;">
+                            Nombre: <input id="nameInput" value="${data.name}" style="width: 100%; box-sizing: border-box; padding: 5px; border-radius: 4px; border: 1px solid #ccc;"/>
+                        </label>
+                        <label style="display: block; margin-bottom: 8px;">
+                            Tipo: 
+                            <select id="typeSelect" style="width: 100%; box-sizing: border-box; padding: 5px; border-radius: 4px; border: 1px solid #ccc;">
+                                <option value="escuela" ${data.type==="escuela"?"selected":""}>Escuela</option>
+                                <option value="salon" ${data.type==="salon"?"selected":""}>Salón de fiestas</option>
+                                <option value="infantil" ${data.type==="infantil"?"selected":""}>Salón infantil</option>
+                            </select>
+                        </label>
+                        <label style="display: block; margin-bottom: 8px;">
+                            Estado: 
+                            <select id="stateSelect" style="width: 100%; box-sizing: border-box; padding: 5px; border-radius: 4px; border: 1px solid #ccc;">
+                                <option value="Tiene" ${data.state==="Tiene"?"selected":""}>Tiene</option>
+                                <option value="No tiene" ${data.state==="No tiene"?"selected":""}>No tiene</option>
+                                <option value="A verificar" ${data.state==="A verificar"?"selected":""}>A verificar</option>
+                                <option value="Falta solicitar" ${data.state==="Falta solicitar"?"selected":""}>Falta solicitar</option>
+                            </select>
+                        </label>
+                        <label style="display: block; margin-bottom: 8px;">
+                            Dirección: <input id="addressInput" value="${data.address || ''}" style="width: 100%; box-sizing: border-box; padding: 5px; border-radius: 4px; border: 1px solid #ccc;"/>
+                        </label>
+                        <div style="margin-top: 10px;">
+                            <button id="saveBtn" style="background-color: #22c55e; color: white; border: none; padding: 8px 12px; border-radius: 6px; cursor: pointer;">💾 Guardar</button>
+                        </div>
+                    </div>
+                `;
+
+                contentDiv.querySelector('#saveBtn').addEventListener('click', () => {
+                    const newName = contentDiv.querySelector('#nameInput').value;
+                    const newType = contentDiv.querySelector('#typeSelect').value;
+                    const newState = contentDiv.querySelector('#stateSelect').value;
+                    const newAddress = contentDiv.querySelector('#addressInput').value;
+                    
+                    data.name = newName || 'Nuevo Marcador';
+                    data.type = newType;
+                    data.state = newState;
+                    data.address = newAddress;
+                    
+                    // El marcador no se mueve al guardar. Su posición es determinada por el usuario al arrastrarlo.
+                    addOrUpdateOnMap(data);
+                    markers.get(data.id).closePopup();
+                    toast("¡Marcador guardado!");
+                });
+                
+                return contentDiv;
+            }
+            
+            // --- Función principal para agregar/actualizar marcadores ---
+            function addOrUpdateOnMap(data, openEdit = false) {
+                let marker = markers.get(data.id);
+                if (!marker) {
+                    marker = L.marker([data.lat, data.lng], {
+                        icon: customIcon(data),
+                        draggable: true
+                    }).addTo(map);
+
+                    marker.on("dragend", (e) => {
+                        const ll = e.target.getLatLng();
+                        data.lat = ll.lat;
+                        data.lng = ll.lng;
+                        // Vuelve a enlazar el popup para reflejar la dirección actualizada, si la hay.
+                        marker.bindPopup(createViewPopupContent(data));
+                        markersData.set(data.id, data);
+                    });
+                    
+                    markers.set(data.id, marker);
+                } else {
+                    marker.setIcon(customIcon(data));
+                    marker.setLatLng([data.lat, data.lng]);
+                }
+                
+                markersData.set(data.id, data);
+                marker.bindPopup(openEdit ? createEditPopupContent(data) : createViewPopupContent(data));
+                
+                if (openEdit) {
+                    marker.openPopup();
+                }
+            }
+
+            // --- Funciones de edición (accesibles globalmente) ---
+            window.editMarker = function(id) {
+                const data = markersData.get(id);
+                if (data) addOrUpdateOnMap(data, true);
+            };
+
+            window.deleteMarker = function(id) {
+                const marker = markers.get(id);
+                if (!marker) return;
+                map.removeLayer(marker);
+                markers.delete(id);
+                markersData.delete(id);
+                toast("Marcador eliminado.");
+            };
+            
+            // --- Botón para agregar marcador en el centro ---
+            document.getElementById("addMarkerBtn").addEventListener("click", function(){
+                const center = map.getCenter();
+                const newMarkerData = {
+                    id: `temp-${nextMarkerId++}`,
+                    name: "Nuevo marcador",
+                    type: "escuela",
+                    state: "Tiene",
+                    address: "",
+                    lat: center.lat,
+                    lng: center.lng
+                };
+                addOrUpdateOnMap(newMarkerData, true);
+            });
+
+            // --- Marcadores iniciales ---
+            const initialMarkers = [
+                {id: "1", name:"Escuela República de Italia", type:"escuela", state:"Tiene", address:"Escuela República de Italia, Av. Belgrano 3450", lat:-26.82, lng:-65.22},
+                {id: "2", name:"Escuela San Agustín", type:"escuela", state:"A verificar", address:"Escuela San Agustín, Av. Roca 123", lat:-26.819, lng:-65.215},
+                {id: "3", name:"Salón de Fiestas", type:"salon", state:"No tiene", address:"Salón de Fiestas, Viamonte 789", lat:-26.817, lng:-65.213},
+                {id: "4", name:"Salón Infantil", type:"infantil", state:"Falta solicitar", address:"Salón Infantil, Av. Sarmiento 1011", lat:-26.815, lng:-65.211}
+            ];
+
+            initialMarkers.forEach(markerData => addOrUpdateOnMap(markerData));
+
+            // --- Leyenda ---
+            const legend = L.control({position: 'bottomright'});
+            legend.onAdd = function (map) {
+                const div = L.DomUtil.create('div', 'info legend');
+                div.innerHTML = `
+                    <div id="legend">
+                        <strong>Glosario</strong>
+                        <div class="legend-item"><div class="legend-icon" style="background:${COLOR_MAP['Tiene']};"></div>Plan de evacuación: Tiene</div>
+                        <div class="legend-item"><div class="legend-icon" style="background:${COLOR_MAP['No tiene']};"></div>Plan de evacuación: No tiene</div>
+                        <div class="legend-item"><div class="legend-icon" style="background:${COLOR_MAP['A verificar']};"></div>Plan de evacuación: A verificar</div>
+                        <div class="legend-item"><div class="legend-icon" style="background:${COLOR_MAP['Falta solicitar']};"></div>Plan de evacuación: Falta solicitar</div>
+                        <div class="legend-item">🎓 Escuela</div>
+                        <div class="legend-item">🎉 Salón de Fiestas</div>
+                        <div class="legend-item">🧸 Salón Infantil</div>
+                    </div>
+                `;
+                return div;
+            };
+            legend.addTo(map);
+
         });
-      });
-
-      map.on('click', () => contextMenu.style.display = 'none');
-    }
-
-    function buildForm(markerId, name = "", desc = "", color = "blue") {
-      return `
-        <div class="popup-form-container">
-          <h4>${name || "Nuevo Local"} (${color})</h4>
-          <input type="text" id="name-${markerId}" value="${name}" placeholder="Nombre del local" required>
-          <textarea id="desc-${markerId}" rows="3" placeholder="Descripción y estado">${desc}</textarea>
-          <label for="color-${markerId}">Color:</label>
-          <select id="color-${markerId}">
-            <option value="blue" ${color==="blue"?"selected":""}>Azul</option>
-            <option value="red" ${color==="red"?"selected":""}>Rojo</option>
-            <option value="green" ${color==="green"?"selected":""}>Verde</option>
-            <option value="yellow" ${color==="yellow"?"selected":""}>Amarillo</option>
-          </select>
-          <button class="save-btn" onclick="saveMarkerInfo(${markerId})">Guardar</button>
-          <button class="delete-btn" onclick="deleteMarker(${markerId})">Eliminar</button>
-        </div>
-      `;
-    }
-
-    function addMarker(latlng, color, name = "", desc = "") {
-      const markerId = Date.now();
-      const newMarker = L.marker(latlng, { icon: icons[color], draggable: true }).addTo(map);
-
-      const formContent = buildForm(markerId, name, desc, color);
-      newMarker.bindPopup(formContent).openPopup();
-
-      newMarkers.push({ id: markerId, marker: newMarker, name, desc, color });
-    }
-
-    function saveMarkerInfo(markerId) {
-      const name = document.getElementById(`name-${markerId}`).value;
-      const desc = document.getElementById(`desc-${markerId}`).value;
-      const color = document.getElementById(`color-${markerId}`).value;
-      if (!name) {
-        alert("Por favor, ingresa el nombre del local.");
-        return;
-      }
-      const markerData = newMarkers.find(m => m.id === markerId);
-      if (markerData) {
-        markerData.name = name;
-        markerData.desc = desc;
-        markerData.color = color;
-        markerData.marker.setIcon(icons[color]);
-        markerData.marker.setPopupContent(buildForm(markerId, name, desc, color)); // 🔥 mantiene botones
-      }
-    }
-
-    function deleteMarker(markerId) {
-      const markerIndex = newMarkers.findIndex(m => m.id === markerId);
-      if (markerIndex !== -1) {
-        map.removeLayer(newMarkers[markerIndex].marker);
-        newMarkers.splice(markerIndex, 1);
-      }
-    }
-
-    initApp();
-  </script>
+    </script>
 </body>
 </html>
+
+</body>
+</html>
+
 
