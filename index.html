@@ -1,154 +1,197 @@
- <!DOCTYPE html>
-<html lang="en">
+<!DOCTYPE html>
+<html lang="es">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Firebase Auth Example</title>
-    <!-- Load Tailwind CSS -->
+    <title>Firebase Auth y Mapa</title>
+    <!-- Carga de Tailwind CSS para estilos -->
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700&display=swap');
         body {
             font-family: 'Inter', sans-serif;
             background-color: #f3f4f6;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            padding: 1rem;
+        }
+        .container {
+            transition: all 0.5s ease-in-out;
         }
     </style>
 </head>
-<body class="flex items-center justify-center min-h-screen p-4 bg-gray-100">
+<body>
 
-    <div id="app" class="bg-white p-8 rounded-lg shadow-xl max-w-sm w-full text-center">
-        <h1 class="text-3xl font-bold mb-6 text-gray-800">Firebase Authentication</h1>
+    <div class="container bg-white p-8 rounded-xl shadow-2xl max-w-xl w-full text-center border border-gray-200">
 
-        <!-- Loading state -->
-        <div id="loading-state" class="flex flex-col items-center justify-center p-4">
-            <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900 mb-2"></div>
-            <p class="text-gray-600">Loading...</p>
+        <!-- Autenticación y Carga -->
+        <div id="auth-container" class="space-y-4">
+            <h1 class="text-3xl font-bold mb-6 text-gray-800">Autenticación</h1>
+            
+            <!-- Estado de carga: visible al inicio -->
+            <div id="loading-state" class="flex flex-col items-center justify-center p-4">
+                <div class="animate-spin rounded-full h-10 w-10 border-b-4 border-indigo-500 mb-4"></div>
+                <p class="text-gray-600 font-medium">Cargando...</p>
+            </div>
+
+            <!-- Estado no autenticado: visible si no hay usuario -->
+            <div id="unauthenticated-state" class="hidden">
+                <p class="text-lg text-gray-700 mb-4">Haz clic para iniciar sesión</p>
+                <button id="sign-in-btn" class="w-full bg-indigo-600 text-white font-semibold py-3 px-6 rounded-lg hover:bg-indigo-700 transition-colors duration-200 focus:outline-none focus:ring-4 focus:ring-indigo-300">
+                    Iniciar Sesión
+                </button>
+            </div>
+
+            <!-- Área de mensajes de error -->
+            <div id="error-message" class="text-red-600 font-medium mt-4 p-3 bg-red-50 rounded-lg border border-red-200 hidden"></div>
         </div>
 
-        <!-- Authenticated state -->
-        <div id="authenticated-state" class="space-y-4" style="display: none;">
-            <p class="text-lg text-gray-700">You are successfully signed in!</p>
-            <p class="text-sm text-gray-500 break-all">
-                Your User ID: <span id="user-id" class="font-mono bg-gray-100 p-2 rounded-md block mt-2"></span>
-            </p>
-        </div>
+        <!-- Contenedor del Mapa -->
+        <div id="map-container" class="hidden">
+            <h1 class="text-3xl font-bold text-gray-800 mb-6">Tu Mapa Personal</h1>
+            <!-- Este div simula un mapa -->
+            <div class="w-full h-80 bg-gray-300 rounded-lg overflow-hidden relative shadow-inner">
+                <div class="absolute inset-0 bg-cover bg-center" style="background-image: url('https://placehold.co/600x400/81C784/FFFFFF?text=Mapa+aquí');"></div>
+                <div class="absolute top-4 left-4 p-2 bg-white bg-opacity-70 rounded-lg text-sm text-gray-700 font-semibold shadow">
+                    Explorando la ubicación...
+                </div>
+            </div>
+            
+            <p id="user-info" class="text-gray-500 text-sm mt-4 break-all hidden"></p>
 
-        <!-- Unauthenticated state -->
-        <div id="unauthenticated-state" class="space-y-4" style="display: none;">
-            <p class="text-lg text-gray-700 mb-4">Please click the button to sign in.</p>
-            <button id="sign-in-btn" class="w-full bg-indigo-600 text-white font-semibold py-3 px-4 rounded-md hover:bg-indigo-700 transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2">
-                Sign In
+            <button id="sign-out-btn" class="w-full bg-red-600 text-white font-semibold py-3 px-6 rounded-lg mt-6 hover:bg-red-700 transition-colors duration-200 focus:outline-none focus:ring-4 focus:ring-red-300">
+                Cerrar Sesión
             </button>
         </div>
 
-        <!-- Error message display area -->
-        <div id="error-message" class="text-red-500 font-medium mt-4 p-3 bg-red-100 rounded-md" style="display: none;"></div>
     </div>
 
-    <!-- Firebase SDK Imports -->
+    <!-- Módulos de Firebase SDK -->
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-        import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
         import { getFirestore } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
-        // Global variables provided by the environment
+        // Variables globales del entorno
         const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
         const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : {};
         const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
 
-        // DOM element references
+        // Referencias a elementos del DOM
+        const authContainer = document.getElementById('auth-container');
+        const mapContainer = document.getElementById('map-container');
         const loadingStateDiv = document.getElementById('loading-state');
-        const authenticatedStateDiv = document.getElementById('authenticated-state');
         const unauthenticatedStateDiv = document.getElementById('unauthenticated-state');
-        const userIdSpan = document.getElementById('user-id');
         const signInBtn = document.getElementById('sign-in-btn');
+        const signOutBtn = document.getElementById('sign-out-btn');
         const errorMessageDiv = document.getElementById('error-message');
+        const userInfoParagraph = document.getElementById('user-info');
 
         /**
-         * Function to show an error message in the UI.
-         * @param {string} message - The error message to display.
+         * Función para mostrar un mensaje de error en la UI.
+         * @param {string} message - El mensaje de error a mostrar.
          */
         function displayError(message) {
             errorMessageDiv.textContent = message;
-            errorMessageDiv.style.display = 'block';
+            errorMessageDiv.classList.remove('hidden');
         }
 
-        // Initialize Firebase services
-        let auth = null;
-        let db = null;
+        /**
+         * Actualiza el estado de la UI para mostrar el contenedor correcto.
+         * @param {string} state - El estado a mostrar ('loading', 'unauthenticated', 'authenticated').
+         */
+        function updateUI(state, user = null) {
+            authContainer.classList.add('hidden');
+            mapContainer.classList.add('hidden');
+            loadingStateDiv.classList.add('hidden');
+            unauthenticatedStateDiv.classList.add('hidden');
+            errorMessageDiv.classList.add('hidden');
+
+            if (state === 'authenticated') {
+                mapContainer.classList.remove('hidden');
+                if (user) {
+                    userInfoParagraph.textContent = `User ID: ${user.uid}`;
+                    userInfoParagraph.classList.remove('hidden');
+                }
+            } else if (state === 'unauthenticated') {
+                authContainer.classList.remove('hidden');
+                unauthenticatedStateDiv.classList.remove('hidden');
+            } else { // 'loading'
+                authContainer.classList.remove('hidden');
+                loadingStateDiv.classList.remove('hidden');
+            }
+        }
+
+        // Inicializar Firebase
+        let auth, db;
         try {
             const app = initializeApp(firebaseConfig);
             auth = getAuth(app);
             db = getFirestore(app);
-            console.log("Firebase services initialized successfully.");
+            console.log("Servicios de Firebase inicializados correctamente.");
         } catch (error) {
-            console.error("Firebase initialization failed:", error);
-            displayError(`Error initializing Firebase: ${error.message}`);
+            console.error("Error al inicializar Firebase:", error);
+            displayError(`Error al inicializar Firebase. Revisa la configuración. Detalles: ${error.message}`);
+            updateUI('unauthenticated');
         }
 
-        /**
-         * Main function to handle authentication flow.
-         * We use onAuthStateChanged to reliably handle the auth state.
-         */
-        function handleAuthStateChange() {
-            if (!auth) {
-                console.error("Auth is not initialized.");
-                displayError("Authentication service is not ready.");
-                return;
-            }
-
-            // Listen for authentication state changes
-            onAuthStateChanged(auth, async (user) => {
-                // Hide loading state once auth state is determined
-                loadingStateDiv.style.display = 'none';
-
+        // --- Lógica principal ---
+        // Escucha los cambios en el estado de autenticación. Este es el flujo de control principal.
+        if (auth) {
+            updateUI('loading'); // Muestra el estado de carga al inicio
+            onAuthStateChanged(auth, (user) => {
                 if (user) {
-                    // User is signed in. Update UI for authenticated state.
-                    console.log("User is signed in with UID:", user.uid);
-                    userIdSpan.textContent = user.uid;
-                    authenticatedStateDiv.style.display = 'block';
-                    unauthenticatedStateDiv.style.display = 'none';
+                    // El usuario ha iniciado sesión. Muestra la vista del mapa.
+                    console.log("Usuario ha iniciado sesión con UID:", user.uid);
+                    updateUI('authenticated', user);
                 } else {
-                    // No user is signed in. Update UI for unauthenticated state.
-                    console.log("No user is signed in.");
-                    authenticatedStateDiv.style.display = 'none';
-                    unauthenticatedStateDiv.style.display = 'block';
+                    // No hay usuario. Muestra la vista de autenticación.
+                    console.log("Ningún usuario ha iniciado sesión.");
+                    updateUI('unauthenticated');
                 }
             });
         }
 
         /**
-         * Handles the sign-in button click.
+         * Maneja el clic en el botón de inicio de sesión.
          */
         async function handleSignIn() {
-            loadingStateDiv.style.display = 'flex';
-            unauthenticatedStateDiv.style.display = 'none';
-            errorMessageDiv.style.display = 'none';
-
+            updateUI('loading');
             try {
                 if (initialAuthToken) {
                     await signInWithCustomToken(auth, initialAuthToken);
-                    console.log("Signed in with custom token.");
                 } else {
                     await signInAnonymously(auth);
-                    console.log("Signed in anonymously.");
                 }
             } catch (error) {
-                console.error("Sign-in failed:", error);
-                displayError(`Sign-in failed: ${error.message}`);
-                // Re-display the sign-in button on error
-                loadingStateDiv.style.display = 'none';
-                unauthenticatedStateDiv.style.display = 'block';
+                console.error("Fallo al iniciar sesión:", error);
+                displayError(`Error al iniciar sesión: ${error.message}`);
+                updateUI('unauthenticated');
             }
         }
 
-        // Attach event listener to the sign-in button
+        /**
+         * Maneja el clic en el botón de cerrar sesión.
+         */
+        async function handleSignOut() {
+            try {
+                await signOut(auth);
+                console.log("Usuario cerró sesión.");
+            } catch (error) {
+                console.error("Fallo al cerrar sesión:", error);
+                displayError(`Error al cerrar sesión: ${error.message}`);
+            }
+        }
+
+        // Asocia los eventos de clic a los botones
         if (signInBtn) {
             signInBtn.addEventListener('click', handleSignIn);
         }
-
-        // Start the authentication state listener
-        handleAuthStateChange();
+        if (signOutBtn) {
+            signOutBtn.addEventListener('click', handleSignOut);
+        }
     </script>
 </body>
 </html>
