@@ -3,9 +3,12 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Firebase Auth y Mapa</title>
+    <title>Firebase Auth y Mapa Colaborativo</title>
     <!-- Carga de Tailwind CSS para estilos -->
     <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Carga de Leaflet para el mapa -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin=""/>
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700&display=swap');
         body {
@@ -20,11 +23,17 @@
         .container {
             transition: all 0.5s ease-in-out;
         }
+        #map {
+            height: 400px;
+            width: 100%;
+            border-radius: 0.5rem;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
     </style>
 </head>
 <body>
 
-    <div class="container bg-white p-8 rounded-xl shadow-2xl max-w-xl w-full text-center border border-gray-200">
+    <div class="container bg-white p-8 rounded-xl shadow-2xl max-w-4xl w-full text-center border border-gray-200">
 
         <!-- Autenticación y Carga -->
         <div id="auth-container" class="space-y-4">
@@ -38,9 +47,9 @@
 
             <!-- Estado no autenticado: visible si no hay usuario -->
             <div id="unauthenticated-state" class="hidden">
-                <p class="text-lg text-gray-700 mb-4">Haz clic para iniciar sesión</p>
+                <p class="text-lg text-gray-700 mb-4">Haz clic para iniciar sesión y ver el mapa.</p>
                 <button id="sign-in-btn" class="w-full bg-indigo-600 text-white font-semibold py-3 px-6 rounded-lg hover:bg-indigo-700 transition-colors duration-200 focus:outline-none focus:ring-4 focus:ring-indigo-300">
-                    Iniciar Sesión
+                    Iniciar Sesión Anónimamente
                 </button>
             </div>
 
@@ -50,15 +59,9 @@
 
         <!-- Contenedor del Mapa -->
         <div id="map-container" class="hidden">
-            <h1 class="text-3xl font-bold text-gray-800 mb-6">Tu Mapa Personal</h1>
-            <!-- Este div simula un mapa -->
-            <div class="w-full h-80 bg-gray-300 rounded-lg overflow-hidden relative shadow-inner">
-                <div class="absolute inset-0 bg-cover bg-center" style="background-image: url('https://placehold.co/600x400/81C784/FFFFFF?text=Mapa+aquí');"></div>
-                <div class="absolute top-4 left-4 p-2 bg-white bg-opacity-70 rounded-lg text-sm text-gray-700 font-semibold shadow">
-                    Explorando la ubicación...
-                </div>
-            </div>
-            
+            <h1 class="text-3xl font-bold text-gray-800 mb-6">Mapa Colaborativo en Tiempo Real</h1>
+            <div id="map"></div>
+            <p class="text-gray-600 mt-4">Haz clic en el mapa para agregar un marcador.</p>
             <p id="user-info" class="text-gray-500 text-sm mt-4 break-all hidden"></p>
 
             <button id="sign-out-btn" class="w-full bg-red-600 text-white font-semibold py-3 px-6 rounded-lg mt-6 hover:bg-red-700 transition-colors duration-200 focus:outline-none focus:ring-4 focus:ring-red-300">
@@ -71,13 +74,18 @@
     <!-- Módulos de Firebase SDK -->
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-        import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-        import { getFirestore } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+        import { getAuth, signInAnonymously, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, collection, addDoc, onSnapshot, doc, deleteDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
-        // Variables globales del entorno
-        const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
-        const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : {};
-        const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
+        const firebaseConfig = {
+          "projectId": "mapa-interactivo-dc-yb",
+          "appId": "1:941318438590:web:6b042dfce7f8d515c7a8ef",
+          "storageBucket": "mapa-interactivo-dc-yb.firebasestorage.app",
+          "apiKey": "AIzaSyDIsvBenoe6l8-dv1PXehgz_lgnL-IzRXQ",
+          "authDomain": "mapa-interactivo-dc-yb.firebaseapp.com",
+          "messagingSenderId": "941318438590",
+          "measurementId": "G-TQG0SQS5MK"
+        };
 
         // Referencias a elementos del DOM
         const authContainer = document.getElementById('auth-container');
@@ -89,19 +97,14 @@
         const errorMessageDiv = document.getElementById('error-message');
         const userInfoParagraph = document.getElementById('user-info');
 
-        /**
-         * Función para mostrar un mensaje de error en la UI.
-         * @param {string} message - El mensaje de error a mostrar.
-         */
+        let auth, db, map;
+        let markers = {}; // Para llevar un registro de los marcadores en el mapa
+
         function displayError(message) {
             errorMessageDiv.textContent = message;
             errorMessageDiv.classList.remove('hidden');
         }
 
-        /**
-         * Actualiza el estado de la UI para mostrar el contenedor correcto.
-         * @param {string} state - El estado a mostrar ('loading', 'unauthenticated', 'authenticated').
-         */
         function updateUI(state, user = null) {
             authContainer.classList.add('hidden');
             mapContainer.classList.add('hidden');
@@ -115,6 +118,7 @@
                     userInfoParagraph.textContent = `User ID: ${user.uid}`;
                     userInfoParagraph.classList.remove('hidden');
                 }
+                initializeMap();
             } else if (state === 'unauthenticated') {
                 authContainer.classList.remove('hidden');
                 unauthenticatedStateDiv.classList.remove('hidden');
@@ -124,68 +128,117 @@
             }
         }
 
+        function initializeMap() {
+            if (map) return; // El mapa ya está inicializado
+
+            map = L.map('map').setView([51.505, -0.09], 13);
+
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+            }).addTo(map);
+
+            map.on('click', addMarkerToFirestore);
+            
+            // Escuchar cambios en los marcadores de Firestore
+            const markersCollection = collection(db, 'markers');
+            onSnapshot(markersCollection, (snapshot) => {
+                snapshot.docChanges().forEach((change) => {
+                    const markerData = change.doc.data();
+                    const markerId = change.doc.id;
+
+                    if (change.type === 'added') {
+                        const marker = L.marker([markerData.lat, markerData.lng]).addTo(map);
+                        marker.on('click', () => {
+                            if (confirm('¿Quieres eliminar este marcador?')) {
+                                deleteMarkerFromFirestore(markerId);
+                            }
+                        });
+                        markers[markerId] = marker;
+                    }
+                    if (change.type === 'removed') {
+                        if (markers[markerId]) {
+                            map.removeLayer(markers[markerId]);
+                            delete markers[markerId];
+                        }
+                    }
+                });
+            });
+        }
+
+        async function addMarkerToFirestore(e) {
+            const { lat, lng } = e.latlng;
+            try {
+                await addDoc(collection(db, 'markers'), {
+                    lat: lat,
+                    lng: lng,
+                    owner: auth.currentUser.uid
+                });
+            } catch (error) {
+                console.error("Error al agregar el marcador: ", error);
+                displayError("No se pudo guardar el marcador.");
+            }
+        }
+        
+        async function deleteMarkerFromFirestore(markerId) {
+            try {
+                await deleteDoc(doc(db, 'markers', markerId));
+            } catch (error) {
+                console.error("Error al eliminar el marcador: ", error);
+                displayError("No se pudo eliminar el marcador.");
+            }
+        }
+
+
         // Inicializar Firebase
-        let auth, db;
         try {
             const app = initializeApp(firebaseConfig);
             auth = getAuth(app);
             db = getFirestore(app);
-            console.log("Servicios de Firebase inicializados correctamente.");
         } catch (error) {
             console.error("Error al inicializar Firebase:", error);
             displayError(`Error al inicializar Firebase. Revisa la configuración. Detalles: ${error.message}`);
             updateUI('unauthenticated');
         }
 
-        // --- Lógica principal ---
-        // Escucha los cambios en el estado de autenticación. Este es el flujo de control principal.
         if (auth) {
-            updateUI('loading'); // Muestra el estado de carga al inicio
+            updateUI('loading');
             onAuthStateChanged(auth, (user) => {
                 if (user) {
-                    // El usuario ha iniciado sesión. Muestra la vista del mapa.
-                    console.log("Usuario ha iniciado sesión con UID:", user.uid);
                     updateUI('authenticated', user);
                 } else {
-                    // No hay usuario. Muestra la vista de autenticación.
-                    console.log("Ningún usuario ha iniciado sesión.");
                     updateUI('unauthenticated');
                 }
             });
         }
 
-        /**
-         * Maneja el clic en el botón de inicio de sesión.
-         */
         async function handleSignIn() {
             updateUI('loading');
             try {
-                if (initialAuthToken) {
-                    await signInWithCustomToken(auth, initialAuthToken);
-                } else {
-                    await signInAnonymously(auth);
-                }
+                await signInAnonymously(auth);
             } catch (error) {
                 console.error("Fallo al iniciar sesión:", error);
-                displayError(`Error al iniciar sesión: ${error.message}`);
-                updateUI('unauthenticated');
+                // FORZAR VISTA DEL ERROR COMPLETO PARA DEBUGGING
+                const fullError = `Código: ${error.code}\n\nMensaje: ${error.message}`;
+                displayError(`Error detallado: ${fullError}`);
+                // No llamamos a updateUI para que el error permanezca visible
             }
         }
 
-        /**
-         * Maneja el clic en el botón de cerrar sesión.
-         */
         async function handleSignOut() {
             try {
                 await signOut(auth);
-                console.log("Usuario cerró sesión.");
+                // Limpiar el mapa para el siguiente usuario
+                if (map) {
+                    map.remove();
+                    map = null;
+                }
+                markers = {};
             } catch (error) {
                 console.error("Fallo al cerrar sesión:", error);
                 displayError(`Error al cerrar sesión: ${error.message}`);
             }
         }
 
-        // Asocia los eventos de clic a los botones
         if (signInBtn) {
             signInBtn.addEventListener('click', handleSignIn);
         }
