@@ -1,0 +1,300 @@
+/* === VARIABLES DE COLOR Y ESTILOS GLOBALES === */
+:root {
+  --primary-color: #0078ff;
+  --primary-hover: #005ec5;
+  --danger-color: #dc3545;
+  --success-color: #28a745;
+  --warning-color: #ffc107;
+  --info-color: #007bff;
+  --secondary-color: #6c757d;
+  --white: #fff;
+  --light-gray: #f4f4f9;
+  --dark-gray: #333;
+  --shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+}
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  margin: 0;
+  background: var(--light-gray);
+  color: var(--dark-gray);
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  overflow: hidden; /* Evita el scroll en el body */
+}
+
+/* === BARRA SUPERIOR === */
+#top-bar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background: var(--white);
+  padding: 10px 20px;
+  box-shadow: var(--shadow);
+  flex-shrink: 0;
+}
+
+#top-bar h2 {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-size: 1.2rem;
+  margin: 0;
+}
+
+#top-bar h2 img {
+  height: 35px;
+}
+
+.user-controls {
+  display: flex;
+  align-items: center;
+  gap: 15px;
+}
+
+#top-bar button {
+  padding: 8px 16px;
+  border: none;
+  border-radius: 8px;
+  background: var(--primary-color);
+  color: var(--white);
+  cursor: pointer;
+  font-weight: bold;
+  transition: background-color 0.2s ease;
+}
+
+#top-bar button:hover {
+  background: var(--primary-hover);
+}
+
+/* === CONTENEDOR PRINCIPAL === */
+#main-container {
+  display: flex;
+  flex-grow: 1;
+  gap: 20px;
+  padding: 20px;
+  overflow: hidden; /* Evita que el contenedor principal se desborde */
+}
+
+#map-container {
+  flex-grow: 1;
+  border-radius: 12px;
+  box-shadow: var(--shadow);
+  overflow: hidden;
+}
+
+#map {
+  width: 100%;
+  height: 100%;
+}
+
+/* === PANEL LATERAL === */
+#legend-panel {
+  width: 280px;
+  flex-shrink: 0;
+  background: var(--white);
+  padding: 20px;
+  border-radius: 12px;
+  box-shadow: var(--shadow);
+  overflow-y: auto; /* Permite scroll si el contenido es muy largo */
+}
+
+#legend-panel button {
+  width: 100%;
+  padding: 12px;
+  font-size: 1rem;
+  border: none;
+  border-radius: 8px;
+  background: var(--primary-color);
+  color: var(--white);
+  cursor: pointer;
+  margin-bottom: 15px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  transition: background-color 0.2s ease;
+}
+
+#legend-panel button:hover:not(:disabled) {
+  background-color: var(--primary-hover);
+}
+
+#legend-panel button:disabled {
+  background-color: #aaa;
+  cursor: not-allowed;
+}
+
+#undoBtn {
+  background-color: var(--secondary-color);
+  margin-top: 15px;
+}
+#undoBtn:hover {
+  background-color: #5a6268;
+}
+
+.legend-section {
+  margin-bottom: 15px;
+}
+
+.legend-title {
+  font-weight: bold;
+  margin-bottom: 10px;
+  font-size: 1rem;
+  padding-bottom: 5px;
+  border-bottom: 1px solid #eee;
+}
+
+.legend-item {
+  display: flex;
+  align-items: center;
+  margin-bottom: 8px;
+  gap: 10px;
+  font-size: 0.9rem;
+}
+
+.legend-icon {
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  border: 1px solid #ccc;
+  flex-shrink: 0;
+}
+
+.legend-fa-icon {
+  font-size: 18px;
+  width: 20px;
+  text-align: center;
+  color: #555;
+}
+
+/* === MARCADORES PERSONALIZADOS === */
+.custom-marker-container {
+  text-align: center;
+  width: 150px;
+  position: relative;
+  left: -75px; /* Centra el contenedor */
+}
+
+.marker-label {
+  background: rgba(255, 255, 255, 0.9);
+  padding: 3px 8px;
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: bold;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.2);
+  white-space: nowrap;
+  position: absolute;
+  bottom: 40px; /* Posición sobre el ícono */
+  left: 50%;
+  transform: translateX(-50%);
+  opacity: 0;
+  transition: opacity 0.2s ease-in-out;
+  pointer-events: none; /* Evita que el label interfiera con el click */
+}
+
+.custom-marker-container:hover .marker-label {
+  opacity: 1;
+}
+
+.marker-icon-background {
+  width: 32px;
+  height: 32px;
+  border-radius: 50% 50% 50% 0;
+  transform: rotate(-45deg);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  border: 2px solid var(--white);
+  box-shadow: 0 2px 5px rgba(0,0,0,0.3);
+  margin: 0 auto;
+  cursor: pointer;
+}
+
+.marker-icon-background i {
+  transform: rotate(45deg);
+  font-size: 16px;
+  color: var(--white);
+}
+
+/* === POPUP DEL MAPA === */
+.leaflet-popup-content-wrapper {
+  border-radius: 8px;
+}
+
+.popup-input, .popup-select {
+  width: calc(100% - 16px);
+  padding: 8px;
+  margin-bottom: 8px;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+}
+
+.popup-button {
+  padding: 8px 12px;
+  border: none;
+  border-radius: 5px;
+  color: var(--white);
+  cursor: pointer;
+  margin-right: 5px;
+  font-weight: bold;
+}
+
+.popup-button.save { background-color: var(--success-color); }
+.popup-button.delete { background-color: var(--danger-color); }
+
+/* === SISTEMA DE NOTIFICACIONES === */
+#notification-container {
+  position: fixed;
+  top: 80px;
+  right: 20px;
+  z-index: 2000;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.notification {
+  padding: 15px;
+  border-radius: 8px;
+  color: var(--white);
+  box-shadow: var(--shadow);
+  opacity: 0;
+  transform: translateX(100%);
+  animation: slideIn 0.5s forwards;
+}
+
+.notification.success { background-color: var(--success-color); }
+.notification.error { background-color: var(--danger-color); }
+.notification.info { background-color: var(--info-color); }
+
+@keyframes slideIn {
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+/* === DISEÑO RESPONSIVO === */
+@media (max-width: 900px) {
+  body {
+    height: auto;
+    overflow: auto;
+  }
+  #main-container {
+    flex-direction: column;
+    height: auto;
+  }
+  #legend-panel {
+    width: auto;
+    order: -1; /* Mueve el panel arriba del mapa */
+    margin-bottom: 20px;
+  }
+  #map-container {
+    height: 60vh; /* Altura fija para el mapa en móviles */
+  }
+  #top-bar h2 span {
+    display: none; /* Oculta el texto en la barra superior en pantallas pequeñas */
+  }
+}
