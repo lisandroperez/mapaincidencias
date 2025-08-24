@@ -1,4 +1,3 @@
-<!DOCTYPE html>
 <html lang="es">
 <head>
   <meta charset="UTF-8">
@@ -23,12 +22,12 @@
       justify-content: space-between;
       align-items: center;
       background: white;
-      padding: 15px 20px;
+      padding: 10px 20px;
       border-radius: 10px;
       margin-bottom: 20px;
       box-shadow: 0 2px 6px rgba(0,0,0,0.15);
       flex-wrap: wrap;
-      gap: 10px;
+      gap: 20px;
     }
     #top-bar h2 {
       margin: 0;
@@ -51,6 +50,16 @@
       cursor: pointer;
     }
     #top-bar button:hover { background: #005ec5; }
+    #top-bar button:disabled { background: #aaa; cursor: not-allowed; }
+
+    #auth-container {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+    }
+    #user-info {
+        font-weight: bold;
+    }
 
     /* --- Contenedor principal --- */
     #main-container {
@@ -107,22 +116,6 @@
       width: 20px;
       text-align: center;
     }
-
-    /* --- Botón deshacer --- */
-    #undoBtn {
-      display: block;
-      margin: 15px auto 0 auto;
-      padding: 10px 18px;
-      font-size: 15px;
-      font-weight: bold;
-      border: none;
-      border-radius: 8px;
-      background: #6c757d;
-      color: white;
-      cursor: pointer;
-      width: 100%;
-    }
-    #undoBtn:hover { background: #5a6268; }
 
     /* --- Formularios en popup --- */
     .popup-form label {
@@ -206,7 +199,11 @@
       <img src="a41eb642-d670-466b-b8e3-6817f44ae436.png" alt="Defensa Civil">
       Mapa Interactivo de Yerba Buena Defensa Civil
     </h2>
-    <button id="addMarkerBtn">➕ Agregar Marcador</button>
+    <div id="auth-container">
+        <div id="user-info"></div>
+        <button id="loginBtn">Iniciar Sesión con Google</button>
+        <button id="logoutBtn" style="display: none;">Cerrar Sesión</button>
+    </div>
   </header>
   
   <!-- Contenido principal -->
@@ -216,6 +213,8 @@
 
     <!-- Glosario -->
     <aside id="legend">
+      <button id="addMarkerBtn">➕ Agregar Marcador</button>
+      <hr>
       <div class="legend-title">Plan de Evacuación</div>
       <div class="legend-item"><div class="legend-icon" style="background: #007bff;"></div>Tiene</div>
       <div class="legend-item"><div class="legend-icon" style="background: #dc3545;"></div>No tiene</div>
@@ -226,13 +225,35 @@
       <div class="legend-item"><i class="fa-solid fa-graduation-cap"></i> Escuela</div>
       <div class="legend-item"><i class="fa-solid fa-cake-candles"></i> Salón de Fiestas</div>
       <div class="legend-item"><i class="fa-solid fa-child-reaching"></i> Salón Infantil</div>
-      <button id="undoBtn">↩️ Deshacer Cambios</button>
     </aside>
   </div>
 
   <!-- Scripts Leaflet -->
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  
+  <!-- Scripts de Firebase -->
+  <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-firestore-compat.js"></script>
+
   <script>
+    // --- INICIALIZACIÓN DE FIREBASE ---
+    console.log("Paso 1: Script principal iniciado.");
+    const firebaseConfig = {
+      apiKey: "AIzaSyDIsvBenoe6l8-dv1PXehgz_lgnL-IzRXQ",
+      authDomain: "mapa-interactivo-dc-yb.firebaseapp.com",
+      projectId: "mapa-interactivo-dc-yb",
+      storageBucket: "mapa-interactivo-dc-yb.firebasestorage.app",
+      messagingSenderId: "941318438590",
+      appId: "1:941318438590:web:6b042dfce7f8d515c7a8ef",
+      measurementId: "G-TQG0SQS5MK"
+    };
+    firebase.initializeApp(firebaseConfig);
+    console.log("Paso 2: Firebase inicializado.");
+    const auth = firebase.auth();
+    const db = firebase.firestore();
+    const locationsCollection = db.collection('locations');
+
     /* --- MAPA --- */
     const map = L.map('map').setView([-26.819, -65.305], 14);
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
@@ -244,8 +265,14 @@
 
     /* --- CAPA DE MARCADORES Y ESTADO --- */
     const markersLayer = L.layerGroup().addTo(map);
-    let markers = {};           // marcadores activos
-    let savedState = [];        // estado para deshacer
+    let markers = {}; // Almacenamiento local de marcadores de Leaflet
+    let currentUser = null;
+
+    /* --- ELEMENTOS DEL DOM --- */
+    const loginBtn = document.getElementById('loginBtn');
+    const logoutBtn = document.getElementById('logoutBtn');
+    const addMarkerBtn = document.getElementById('addMarkerBtn');
+    const userInfo = document.getElementById('user-info');
 
     /* --- Colores y tipos de iconos --- */
     const statusColors = {
@@ -256,6 +283,46 @@
       salon:   '<i class="fa-solid fa-cake-candles"></i>',
       infantil:'<i class="fa-solid fa-child-reaching"></i>'
     };
+
+    /* --- LÓGICA DE AUTENTICACIÓN --- */
+    const googleProvider = new firebase.auth.GoogleAuthProvider();
+
+    loginBtn.onclick = () => {
+        console.log("Paso 4: Botón de Iniciar Sesión clickeado. Abriendo popup...");
+        auth.signInWithPopup(googleProvider)
+            .then((result) => {
+                console.log("Éxito en signInWithPopup. Resultado:", result);
+            })
+            .catch((error) => {
+                console.error("Error en signInWithPopup:", error);
+            });
+    };
+
+    logoutBtn.onclick = () => auth.signOut();
+
+    console.log("Paso 3: Añadiendo listener de estado de autenticación.");
+    auth.onAuthStateChanged(user => {
+        console.log("Paso 5: El estado de autenticación ha cambiado. Usuario:", user);
+        currentUser = user;
+        if (user) {
+            console.log(`Usuario ${user.displayName} ha iniciado sesión.`);
+            userInfo.innerText = `Hola, ${user.displayName}`;
+            loginBtn.style.display = 'none';
+            logoutBtn.style.display = 'block';
+            addMarkerBtn.disabled = false;
+            loadMarkers();
+        } else {
+            console.log("Usuario ha cerrado sesión o no está autenticado.");
+            userInfo.innerText = '';
+            loginBtn.style.display = 'block';
+            logoutBtn.style.display = 'none';
+            addMarkerBtn.disabled = true;
+            markersLayer.clearLayers();
+            markers = {};
+        }
+    });
+
+    /* --- FUNCIONES DEL MAPA --- */
 
     /* --- Crear icono personalizado --- */
     function createCustomIcon(data) {
@@ -274,110 +341,122 @@
     }
 
     /* --- Popup editable --- */
-    function createPopupContent(markerId, data) {
+    function createPopupContent(docId, data) {
       return `
         <div class="popup-form">
-          <label for="name-${markerId}">Nombre:</label>
-          <input type="text" id="name-${markerId}" value="${data.name}">
-          <label for="address-${markerId}">Dirección:</label>
-          <input type="text" id="address-${markerId}" value="${data.address}">
-          <label for="type-${markerId}">Tipo de lugar:</label>
-          <select id="type-${markerId}">
+          <label for="name-${docId}">Nombre:</label>
+          <input type="text" id="name-${docId}" value="${data.name}">
+          <label for="address-${docId}">Dirección:</label>
+          <input type="text" id="address-${docId}" value="${data.address}">
+          <label for="type-${docId}">Tipo de lugar:</label>
+          <select id="type-${docId}">
             <option value="escuela" ${data.type === 'escuela' ? 'selected' : ''}>🎓 Escuela</option>
             <option value="salon" ${data.type === 'salon' ? 'selected' : ''}>🎉 Salón de Fiestas</option>
             <option value="infantil" ${data.type === 'infantil' ? 'selected' : ''}>🧸 Salón Infantil</option>
           </select>
-          <label for="color-${markerId}">Estado del Plan:</label>
-          <select id="color-${markerId}"> 
+          <label for="color-${docId}">Estado del Plan:</label>
+          <select id="color-${docId}"> 
             <option value="blue" ${data.color === 'blue' ? 'selected' : ''}>Tiene</option>
             <option value="red" ${data.color === 'red' ? 'selected' : ''}>No tiene</option>
             <option value="green" ${data.color === 'green' ? 'selected' : ''}>A verificar</option>
             <option value="gold" ${data.color === 'gold' ? 'selected' : ''}>Falta solicitar</option>
           </select>
           <div class="popup-buttons">
-            <button class="save-btn" onclick="saveMarker('${markerId}')">Guardar</button>
-            <button class="delete-btn" onclick="deleteMarker('${markerId}')">Eliminar</button>
+            <button class="save-btn" onclick="saveMarker('${docId}')">Guardar</button>
+            <button class="delete-btn" onclick="deleteMarker('${docId}')">Eliminar</button>
           </div>
         </div>
       `;
     }
+    
+    /* --- Renderizar marcador en el mapa --- */
+    function renderMarker(docId, data) {
+        const latlng = [data.lat, data.lng];
+        const marker = L.marker(latlng, {
+            icon: createCustomIcon(data),
+            draggable: true
+        }).addTo(markersLayer);
 
-    /* --- Agregar marcador --- */
-    function addMarker(latlng, data) {
-      const markerId = `marker_${Date.now()}_${Math.floor(Math.random()*1000)}`;
-      const marker = L.marker(latlng, {
-        icon: createCustomIcon(data),
-        draggable: true
-      }).addTo(markersLayer);
+        marker.docId = docId;
+        markers[docId] = marker; // Guardar referencia al marcador de Leaflet
 
-      marker.markerId = markerId;
-      marker.customData = {...data};
-      markers[markerId] = marker;
+        marker.bindPopup(createPopupContent(docId, data));
 
-      marker.bindPopup(createPopupContent(markerId, data));
-      return markerId;
+        // Evento para actualizar lat/lng al arrastrar
+        marker.on('dragend', function(event) {
+            if (!currentUser) return;
+            const position = event.target.getLatLng();
+            locationsCollection.doc(docId).update({ lat: position.lat, lng: position.lng });
+        });
     }
 
     /* --- Guardar cambios --- */
-    window.saveMarker = function(markerId) {
-      const marker = markers[markerId];
+    window.saveMarker = function(docId) {
+      if (!currentUser) return;
+      const marker = markers[docId];
       if (!marker) return;
+      
       const newData = {
-        name: document.getElementById(`name-${markerId}`).value,
-        address: document.getElementById(`address-${markerId}`).value,
-        type: document.getElementById(`type-${markerId}`).value,
-        color: document.getElementById(`color-${markerId}`).value
+        name: document.getElementById(`name-${docId}`).value,
+        address: document.getElementById(`address-${docId}`).value,
+        type: document.getElementById(`type-${docId}`).value,
+        color: document.getElementById(`color-${docId}`).value,
+        lat: marker.getLatLng().lat,
+        lng: marker.getLatLng().lng
       };
-      marker.customData = newData;
-      marker.setIcon(createCustomIcon(newData));
-      marker.setPopupContent(createPopupContent(markerId, newData));
-      marker.closePopup();
+
+      locationsCollection.doc(docId).update(newData)
+        .then(() => {
+            console.log("Marcador actualizado!");
+            map.closePopup();
+        })
+        .catch(error => console.error("Error al actualizar marcador: ", error));
     }
 
     /* --- Eliminar marcador --- */
-    window.deleteMarker = function(markerId) {
+    window.deleteMarker = function(docId) {
+      if (!currentUser) return;
       if (confirm('¿Eliminar este marcador?')) {
-        const marker = markers[markerId];
-        if (marker) {
-          markersLayer.removeLayer(marker);
-          delete markers[markerId];
-        }
+        locationsCollection.doc(docId).delete()
+          .then(() => console.log("Marcador eliminado!"))
+          .catch(error => console.error("Error al eliminar marcador: ", error));
       }
     }
 
     /* --- Botón agregar marcador --- */
-    document.getElementById("addMarkerBtn").addEventListener("click", function() {
-      addMarker(map.getCenter(), {
+    addMarkerBtn.addEventListener("click", function() {
+      if (!currentUser) return;
+      const center = map.getCenter();
+      const newLocation = {
         name: 'Nuevo Lugar',
         address: 'Dirección pendiente',
         type: 'salon',
-        color: 'gold'
-      });
+        color: 'gold',
+        lat: center.lat,
+        lng: center.lng
+      };
+      locationsCollection.add(newLocation)
+        .then(() => console.log("Nuevo marcador agregado!"))
+        .catch(error => console.error("Error al agregar marcador: ", error));
     });
 
-    /* --- Guardar estado actual --- */
-    function saveState() {
-      savedState = Object.values(markers).map(marker => ({
-        latlng: marker.getLatLng(),
-        data: {...marker.customData}
-      }));
+    /* --- SINCRONIZACIÓN EN TIEMPO REAL CON FIRESTORE --- */
+    function loadMarkers() {
+        console.log("Paso 6: Cargando marcadores desde Firestore...");
+        locationsCollection.onSnapshot(snapshot => {
+            console.log("Datos recibidos de Firestore. Número de documentos:", snapshot.size);
+            markersLayer.clearLayers();
+            markers = {};
+            snapshot.forEach(doc => {
+                const docId = doc.id;
+                const data = doc.data();
+                renderMarker(docId, data);
+            });
+        }, error => {
+            console.error("Error al escuchar cambios en Firestore:", error);
+        });
     }
 
-    /* --- Restaurar estado (deshacer) --- */
-    document.getElementById("undoBtn").addEventListener("click", function() {
-      if (savedState.length === 0) return;
-      markersLayer.clearLayers();
-      markers = {};
-      savedState.forEach(m => addMarker(m.latlng, m.data));
-    });
-
-    /* --- Marcadores iniciales --- */
-    const initialMarkers = [
-      { latlng: [-26.814, -65.311], data: { name: 'Colegio del Sol', address: 'Av. Aconquija 123', type: 'escuela', color: 'blue' } },
-      { latlng: [-26.818, -65.295], data: { name: 'Eventos La Casona', address: 'Lobo de la Vega 789', type: 'salon', color: 'red' } }
-    ];
-    initialMarkers.forEach(m => addMarker(m.latlng, m.data));
-    saveState(); // guarda el estado inicial
   </script>
 </body>
 </html>
