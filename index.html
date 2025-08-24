@@ -1,442 +1,73 @@
+<!DOCTYPE html>
 <html lang="es">
 <head>
   <meta charset="UTF-8">
-  <title>Mapa Interactivo de Yerba Buena Defensa Civil</title>
-  
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Mapa Interactivo - Defensa Civil Yerba Buena</title>
+
   <!-- Estilos de Leaflet y Font Awesome -->
-  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css" />
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin=""/>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css" xintegrity="sha512-SnH5WK+bZxgPHs44uWIX+LLJAJ9/2PkPKZ5QiAj6Ta86w+fsb2TkcmfRyVX3pBnMFcV7oQPJkl9QevSCWr3W6A==" crossorigin="anonymous" referrerpolicy="no-referrer" />
 
-  <style>
-    /* --- ESTILOS GENERALES --- */
-    body {
-      font-family: Arial, Helvetica, sans-serif;
-      margin: 20px;
-      background-color: #f4f4f9;
-      color: #333;
-    }
-
-    /* --- Barra superior con logo y botón --- */
-    #top-bar {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      background: white;
-      padding: 10px 20px;
-      border-radius: 10px;
-      margin-bottom: 20px;
-      box-shadow: 0 2px 6px rgba(0,0,0,0.15);
-      flex-wrap: wrap;
-      gap: 20px;
-    }
-    #top-bar h2 {
-      margin: 0;
-      font-size: 20px;
-      display: flex;
-      align-items: center;
-      gap: 10px;
-    }
-    #top-bar h2 img {
-      height: 35px;
-    }
-    #top-bar button {
-      padding: 10px 18px;
-      font-size: 15px;
-      font-weight: bold;
-      border: none;
-      border-radius: 8px;
-      background: #0078ff;
-      color: white;
-      cursor: pointer;
-    }
-    #top-bar button:hover { background: #005ec5; }
-    #top-bar button:disabled { background: #aaa; cursor: not-allowed; }
-
-    #auth-container {
-        display: flex;
-        align-items: center;
-        gap: 10px;
-    }
-    #user-info {
-        font-weight: bold;
-    }
-
-    /* --- Contenedor principal --- */
-    #main-container {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 20px;
-      max-width: 1500px;
-      margin: 0 auto;
-    }
-
-    /* --- Mapa --- */
-    #map-container {
-      flex: 1;
-      min-width: 600px;
-      height: 85vh;
-      border-radius: 12px;
-      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-    }
-    #map {
-      width: 100%;
-      height: 100%;
-      border-radius: 12px;
-    }
-
-    /* --- Glosario lateral --- */
-    #legend {
-      width: 250px;
-      background: white;
-      padding: 20px;
-      border-radius: 8px;
-      box-shadow: 0 2px 6px rgba(0,0,0,0.2);
-      font-size: 14px;
-    }
-    .legend-title {
-      font-weight: bold;
-      margin-bottom: 10px;
-      font-size: 16px;
-    }
-    .legend-item {
-      display: flex;
-      align-items: center;
-      margin-bottom: 8px;
-    }
-    .legend-icon {
-      width: 20px;
-      height: 20px;
-      margin-right: 10px;
-      border-radius: 50%;
-      border: 1px solid #ccc;
-    }
-    .legend-item i {
-      font-size: 16px;
-      margin-right: 10px;
-      width: 20px;
-      text-align: center;
-    }
-
-    /* --- Formularios en popup --- */
-    .popup-form label {
-      display: block;
-      margin-top: 10px;
-      font-weight: bold;
-    }
-    .popup-form input,
-    .popup-form select {
-      width: 95%;
-      padding: 8px;
-      margin-top: 4px;
-      border-radius: 4px;
-      border: 1px solid #ccc;
-    }
-    .popup-buttons {
-      margin-top: 15px;
-      display: flex;
-      justify-content: space-between;
-    }
-    .popup-buttons button {
-      padding: 8px 12px;
-      border: none;
-      border-radius: 5px;
-      color: white;
-      cursor: pointer;
-    }
-    .save-btn { background-color: #28a745; }
-    .delete-btn { background-color: #dc3545; }
-
-    /* --- Iconos personalizados para marcadores --- */
-    .custom-marker-container {
-      text-align: center;
-      position: relative;
-      width: 150px;
-      left: -75px;
-    }
-    .marker-label {
-      background: rgba(255, 255, 255, 0.85);
-      padding: 2px 6px;
-      border-radius: 4px;
-      font-size: 12px;
-      font-weight: bold;
-      white-space: nowrap;
-      position: absolute;
-      bottom: 45px;
-      left: 50%;
-      transform: translateX(-50%);
-      box-shadow: 0 1px 3px rgba(0,0,0,0.2);
-    }
-    .marker-icon-background {
-      width: 32px;
-      height: 32px;
-      border-radius: 50% 50% 50% 0;
-      transform: rotate(-45deg);
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      border: 2px solid white;
-      box-shadow: 0 2px 5px rgba(0,0,0,0.3);
-      margin: 0 auto;
-    }
-    .marker-icon-background i {
-      transform: rotate(45deg);
-      font-size: 16px;
-      color: white;
-    }
-
-    /* --- Responsivo --- */
-    @media (max-width: 900px) {
-      #main-container { flex-direction: column; }
-      #legend { width: 100%; }
-    }
-  </style>
+  <!-- Tu hoja de estilos personalizada -->
+  <link rel="stylesheet" href="styles.css">
 </head>
 <body>
 
-  <!-- Barra superior con logo y botón -->
+  <!-- Barra superior -->
   <header id="top-bar">
     <h2>
-      <img src="a41eb642-d670-466b-b8e3-6817f44ae436.png" alt="Defensa Civil">
-      Mapa Interactivo de Yerba Buena Defensa Civil
+      <img src="a41eb642-d670-466b-b8e3-6817f44ae436.png" alt="Logo Defensa Civil">
+      <span>Mapa Interactivo YB</span>
     </h2>
-    <div id="auth-container">
-        <div id="user-info"></div>
-        <button id="loginBtn">Iniciar Sesión con Google</button>
-        <button id="logoutBtn" style="display: none;">Cerrar Sesión</button>
+    <div class="user-controls">
+      <span id="user-info"></span>
+      <button id="loginBtn">Iniciar Sesión</button>
+      <button id="logoutBtn" style="display:none;">Cerrar Sesión</button>
     </div>
   </header>
-  
-  <!-- Contenido principal -->
-  <div id="main-container">
-    <!-- Mapa -->
-    <div id="map-container"><div id="map"></div></div>
 
-    <!-- Glosario -->
-    <aside id="legend">
-      <button id="addMarkerBtn">➕ Agregar Marcador</button>
+  <!-- Contenedor Principal -->
+  <main id="main-container">
+    <div id="map-container">
+      <div id="map"></div>
+    </div>
+
+    <!-- Panel lateral (Leyenda y Controles) -->
+    <aside id="legend-panel">
+      <button id="addMarkerBtn" disabled>
+        <i class="fa-solid fa-plus"></i> Agregar Marcador
+      </button>
       <hr>
-      <div class="legend-title">Plan de Evacuación</div>
-      <div class="legend-item"><div class="legend-icon" style="background: #007bff;"></div>Tiene</div>
-      <div class="legend-item"><div class="legend-icon" style="background: #dc3545;"></div>No tiene</div>
-      <div class="legend-item"><div class="legend-icon" style="background: #28a745;"></div>A verificar</div>
-      <div class="legend-item"><div class="legend-icon" style="background: #ffc107;"></div>Falta solicitar</div>
+      <div class="legend-section">
+        <div class="legend-title">Plan de Evacuación</div>
+        <div class="legend-item"><div class="legend-icon" style="background: #007bff;"></div>Tiene</div>
+        <div class="legend-item"><div class="legend-icon" style="background: #dc3545;"></div>No tiene</div>
+        <div class="legend-item"><div class="legend-icon" style="background: #28a745;"></div>A verificar</div>
+        <div class="legend-item"><div class="legend-icon" style="background: #ffc107;"></div>Falta solicitar</div>
+      </div>
       <hr>
-      <div class="legend-title">Tipos de Lugar</div>
-      <div class="legend-item"><i class="fa-solid fa-graduation-cap"></i> Escuela</div>
-      <div class="legend-item"><i class="fa-solid fa-cake-candles"></i> Salón de Fiestas</div>
-      <div class="legend-item"><i class="fa-solid fa-child-reaching"></i> Salón Infantil</div>
+      <div class="legend-section">
+        <div class="legend-title">Tipos de Lugar</div>
+        <div class="legend-item"><i class="fa-solid fa-graduation-cap legend-fa-icon"></i> Escuela</div>
+        <div class="legend-item"><i class="fa-solid fa-cake-candles legend-fa-icon"></i> Salón de Fiestas</div>
+        <div class="legend-item"><i class="fa-solid fa-child-reaching legend-fa-icon"></i> Salón Infantil</div>
+      </div>
+      <button id="undoBtn" style="display: none;">
+        <i class="fa-solid fa-rotate-left"></i> Deshacer Borrado
+      </button>
     </aside>
-  </div>
+  </main>
 
-  <!-- Scripts Leaflet -->
-  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-  
-  <!-- Scripts de Firebase -->
+  <!-- Contenedor para notificaciones -->
+  <div id="notification-container"></div>
+
+  <!-- Scripts -->
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
   <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-auth-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-firestore-compat.js"></script>
+  <script src="main.js"></script>
 
-  <script>
-    // --- INICIALIZACIÓN DE FIREBASE ---
-    const firebaseConfig = {
-      apiKey: "AIzaSyDIsvBenoe6l8-dv1PXehgz_lgnL-IzRXQ",
-      authDomain: "mapa-interactivo-dc-yb.firebaseapp.com",
-      projectId: "mapa-interactivo-dc-yb",
-      storageBucket: "mapa-interactivo-dc-yb.firebasestorage.app",
-      messagingSenderId: "941318438590",
-      appId: "1:941318438590:web:6b042dfce7f8d515c7a8ef",
-      measurementId: "G-TQG0SQS5MK"
-    };
-    firebase.initializeApp(firebaseConfig);
-    const auth = firebase.auth();
-    const db = firebase.firestore();
-    const locationsCollection = db.collection('markers');
-
-    /* --- MAPA --- */
-    const map = L.map('map').setView([-26.819, -65.305], 14);
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-      attribution: '&copy; OpenStreetMap contributors',
-      noWrap: true,
-      bounds: [[-90, -180], [90, 180]]
-    }).addTo(map);
-    map.setMaxBounds([[-90, -180], [90, 180]]);
-
-    /* --- CAPA DE MARCADORES Y ESTADO --- */
-    const markersLayer = L.layerGroup().addTo(map);
-    let markers = {}; // Almacenamiento local de marcadores de Leaflet
-    let currentUser = null;
-
-    /* --- ELEMENTOS DEL DOM --- */
-    const loginBtn = document.getElementById('loginBtn');
-    const logoutBtn = document.getElementById('logoutBtn');
-    const addMarkerBtn = document.getElementById('addMarkerBtn');
-    const userInfo = document.getElementById('user-info');
-
-    /* --- Colores y tipos de iconos --- */
-    const statusColors = {
-      blue: '#007bff', red: '#dc3545', green: '#28a745', gold: '#ffc107'
-    };
-    const placeIconsHTML = {
-      escuela: '<i class="fa-solid fa-graduation-cap"></i>',
-      salon:   '<i class="fa-solid fa-cake-candles"></i>',
-      infantil:'<i class="fa-solid fa-child-reaching"></i>'
-    };
-
-    /* --- LÓGICA DE AUTENTICACIÓN --- */
-    const googleProvider = new firebase.auth.GoogleAuthProvider();
-
-    loginBtn.onclick = () => auth.signInWithPopup(googleProvider);
-    logoutBtn.onclick = () => auth.signOut();
-
-    auth.onAuthStateChanged(user => {
-        currentUser = user;
-        if (user) {
-            userInfo.innerText = `Hola, ${user.displayName}`;
-            loginBtn.style.display = 'none';
-            logoutBtn.style.display = 'block';
-            addMarkerBtn.disabled = false;
-        } else {
-            userInfo.innerText = '';
-            loginBtn.style.display = 'block';
-            logoutBtn.style.display = 'none';
-            addMarkerBtn.disabled = true;
-        }
-    });
-
-    /* --- FUNCIONES DEL MAPA --- */
-
-    /* --- Crear icono personalizado --- */
-    function createCustomIcon(data) {
-      return L.divIcon({
-        html: `
-          <div class="custom-marker-container">
-            <div class="marker-label">${data.name}</div>
-            <div class="marker-icon-background" style="background-color: ${statusColors[data.color] || '#888'};">
-              ${placeIconsHTML[data.type] || ''}
-            </div>
-          </div>
-        `,
-        className: '',
-        iconAnchor: [0, 16]
-      });
-    }
-
-    /* --- Popup editable --- */
-    function createPopupContent(docId, data) {
-      return `
-        <div class="popup-form">
-          <label for="name-${docId}">Nombre:</label>
-          <input type="text" id="name-${docId}" value="${data.name}">
-          <label for="address-${docId}">Dirección:</label>
-          <input type="text" id="address-${docId}" value="${data.address}">
-          <label for="type-${docId}">Tipo de lugar:</label>
-          <select id="type-${docId}">
-            <option value="escuela" ${data.type === 'escuela' ? 'selected' : ''}>🎓 Escuela</option>
-            <option value="salon" ${data.type === 'salon' ? 'selected' : ''}>🎉 Salón de Fiestas</option>
-            <option value="infantil" ${data.type === 'infantil' ? 'selected' : ''}>🧸 Salón Infantil</option>
-          </select>
-          <label for="color-${docId}">Estado del Plan:</label>
-          <select id="color-${docId}"> 
-            <option value="blue" ${data.color === 'blue' ? 'selected' : ''}>Tiene</option>
-            <option value="red" ${data.color === 'red' ? 'selected' : ''}>No tiene</option>
-            <option value="green" ${data.color === 'green' ? 'selected' : ''}>A verificar</option>
-            <option value="gold" ${data.color === 'gold' ? 'selected' : ''}>Falta solicitar</option>
-          </select>
-          <div class="popup-buttons">
-            <button class="save-btn" onclick="saveMarker('${docId}')">Guardar</button>
-            <button class="delete-btn" onclick="deleteMarker('${docId}')">Eliminar</button>
-          </div>
-        </div>
-      `;
-    }
-    
-    /* --- Renderizar marcador en el mapa --- */
-    function renderMarker(docId, data) {
-        const latlng = [data.lat, data.lng];
-        const marker = L.marker(latlng, {
-            icon: createCustomIcon(data),
-            draggable: true
-        }).addTo(markersLayer);
-
-        marker.docId = docId;
-        markers[docId] = marker; // Guardar referencia al marcador de Leaflet
-
-        marker.bindPopup(createPopupContent(docId, data));
-
-        // Evento para actualizar lat/lng al arrastrar
-        marker.on('dragend', function(event) {
-            if (!currentUser) return;
-            const position = event.target.getLatLng();
-            locationsCollection.doc(docId).update({ lat: position.lat, lng: position.lng });
-        });
-    }
-
-    /* --- Guardar cambios --- */
-    window.saveMarker = function(docId) {
-      if (!currentUser) return;
-      const marker = markers[docId];
-      if (!marker) return;
-      
-      const newData = {
-        name: document.getElementById(`name-${docId}`).value,
-        address: document.getElementById(`address-${docId}`).value,
-        type: document.getElementById(`type-${docId}`).value,
-        color: document.getElementById(`color-${docId}`).value,
-        lat: marker.getLatLng().lat,
-        lng: marker.getLatLng().lng
-      };
-
-      locationsCollection.doc(docId).update(newData)
-        .then(() => {
-            console.log("Marcador actualizado!");
-            map.closePopup();
-        })
-        .catch(error => console.error("Error al actualizar marcador: ", error));
-    }
-
-    /* --- Eliminar marcador --- */
-    window.deleteMarker = function(docId) {
-      if (!currentUser) return;
-      if (confirm('¿Eliminar este marcador?')) {
-        locationsCollection.doc(docId).delete()
-          .then(() => console.log("Marcador eliminado!"))
-          .catch(error => console.error("Error al eliminar marcador: ", error));
-      }
-    }
-
-    /* --- Botón agregar marcador --- */
-    addMarkerBtn.addEventListener("click", function() {
-      if (!currentUser) return;
-      const center = map.getCenter();
-      const newLocation = {
-        name: 'Nuevo Lugar',
-        address: 'Dirección pendiente',
-        type: 'salon',
-        color: 'gold',
-        lat: center.lat,
-        lng: center.lng
-      };
-      locationsCollection.add(newLocation)
-        .then(() => console.log("Nuevo marcador agregado!"))
-        .catch(error => console.error("Error al agregar marcador: ", error));
-    });
-
-    /* --- SINCRONIZACIÓN EN TIEMPO REAL CON FIRESTORE --- */
-    function loadMarkers() {
-        locationsCollection.onSnapshot(snapshot => {
-            markersLayer.clearLayers();
-            markers = {};
-            snapshot.forEach(doc => {
-                const docId = doc.id;
-                const data = doc.data();
-                renderMarker(docId, data);
-            });
-        });
-    }
-
-    // Cargar los marcadores para todos los usuarios al iniciar la página
-    loadMarkers();
-
-  </script>
 </body>
 </html>
