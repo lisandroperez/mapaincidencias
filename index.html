@@ -238,7 +238,6 @@
 
   <script>
     // --- INICIALIZACIÓN DE FIREBASE ---
-    console.log("Paso 1: Script principal iniciado.");
     const firebaseConfig = {
       apiKey: "AIzaSyDIsvBenoe6l8-dv1PXehgz_lgnL-IzRXQ",
       authDomain: "mapa-interactivo-dc-yb.firebaseapp.com",
@@ -249,10 +248,9 @@
       measurementId: "G-TQG0SQS5MK"
     };
     firebase.initializeApp(firebaseConfig);
-    console.log("Paso 2: Firebase inicializado.");
     const auth = firebase.auth();
     const db = firebase.firestore();
-    const locationsCollection = db.collection('locations');
+    const locationsCollection = db.collection('markers');
 
     /* --- MAPA --- */
     const map = L.map('map').setView([-26.819, -65.305], 14);
@@ -287,38 +285,21 @@
     /* --- LÓGICA DE AUTENTICACIÓN --- */
     const googleProvider = new firebase.auth.GoogleAuthProvider();
 
-    loginBtn.onclick = () => {
-        console.log("Paso 4: Botón de Iniciar Sesión clickeado. Abriendo popup...");
-        auth.signInWithPopup(googleProvider)
-            .then((result) => {
-                console.log("Éxito en signInWithPopup. Resultado:", result);
-            })
-            .catch((error) => {
-                console.error("Error en signInWithPopup:", error);
-            });
-    };
-
+    loginBtn.onclick = () => auth.signInWithPopup(googleProvider);
     logoutBtn.onclick = () => auth.signOut();
 
-    console.log("Paso 3: Añadiendo listener de estado de autenticación.");
     auth.onAuthStateChanged(user => {
-        console.log("Paso 5: El estado de autenticación ha cambiado. Usuario:", user);
         currentUser = user;
         if (user) {
-            console.log(`Usuario ${user.displayName} ha iniciado sesión.`);
             userInfo.innerText = `Hola, ${user.displayName}`;
             loginBtn.style.display = 'none';
             logoutBtn.style.display = 'block';
             addMarkerBtn.disabled = false;
-            loadMarkers();
         } else {
-            console.log("Usuario ha cerrado sesión o no está autenticado.");
             userInfo.innerText = '';
             loginBtn.style.display = 'block';
             logoutBtn.style.display = 'none';
             addMarkerBtn.disabled = true;
-            markersLayer.clearLayers();
-            markers = {};
         }
     });
 
@@ -442,9 +423,7 @@
 
     /* --- SINCRONIZACIÓN EN TIEMPO REAL CON FIRESTORE --- */
     function loadMarkers() {
-        console.log("Paso 6: Cargando marcadores desde Firestore...");
         locationsCollection.onSnapshot(snapshot => {
-            console.log("Datos recibidos de Firestore. Número de documentos:", snapshot.size);
             markersLayer.clearLayers();
             markers = {};
             snapshot.forEach(doc => {
@@ -452,10 +431,11 @@
                 const data = doc.data();
                 renderMarker(docId, data);
             });
-        }, error => {
-            console.error("Error al escuchar cambios en Firestore:", error);
         });
     }
+
+    // Cargar los marcadores para todos los usuarios al iniciar la página
+    loadMarkers();
 
   </script>
 </body>
