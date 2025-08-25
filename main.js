@@ -4,7 +4,6 @@
   // --- CONFIGURACIÓN DE LA APLICACIÓN ---
   const CONFIG = {
     firebase: {
-      // IMPORTANTE: Reemplaza esto con tu propia configuración de Firebase
       apiKey: "AIzaSyDIsvBenoe6l8-dv1PXehgz_lgnL-IzRXQ",
       authDomain: "mapa-interactivo-dc-yb.firebaseapp.com",
       projectId: "mapa-interactivo-dc-yb",
@@ -39,8 +38,8 @@
     currentUser: null,
     map: null,
     markersLayer: null,
-    localMarkers: {}, // Almacena instancias de marcadores de Leaflet {id: marker}
-    lastDeleted: null // Almacena el último marcador borrado para la función "deshacer"
+    localMarkers: {},
+    lastDeleted: null
   };
 
   // --- REFERENCIAS A ELEMENTOS DEL DOM ---
@@ -54,7 +53,7 @@
     notificationContainer: document.getElementById('notification-container')
   };
 
-  // --- MÓDULO DE UTILIDADES (Ej: Notificaciones) ---
+  // --- MÓDULO DE UTILIDADES ---
   const Utils = {
     showNotification(message, type = 'info') {
       const notif = document.createElement('div');
@@ -63,7 +62,19 @@
       UI.notificationContainer.appendChild(notif);
       setTimeout(() => {
         notif.remove();
-      }, 4000); // La notificación desaparece después de 4 segundos
+      }, 4000);
+    },
+    // NUEVA FUNCIÓN: Obtiene la dirección desde coordenadas usando la API de Nominatim (gratuita)
+    async getAddressFromCoordinates(lat, lng) {
+        try {
+            const response = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}`);
+            if (!response.ok) throw new Error('Respuesta de red no fue exitosa.');
+            const data = await response.json();
+            return data.display_name || 'Dirección no encontrada';
+        } catch (error) {
+            console.error("Error obteniendo la dirección:", error);
+            return 'No se pudo obtener la dirección';
+        }
     }
   };
 
@@ -76,12 +87,10 @@
       this.markersRef = this.db.collection('markers');
       this.googleProvider = new firebase.auth.GoogleAuthProvider();
     },
-    onAuthStateChanged(callback) {
-      this.auth.onAuthStateChanged(callback);
-    },
+    onAuthStateChanged: (callback) => FirebaseModule.auth.onAuthStateChanged(callback),
     login: () => FirebaseModule.auth.signInWithPopup(FirebaseModule.googleProvider),
     logout: () => FirebaseModule.auth.signOut(),
-    observeMarkers(callback) {
+    observeMarkers: (callback) => {
       FirebaseModule.markersRef.onSnapshot(snapshot => {
         callback(snapshot.docChanges());
       }, error => {
@@ -92,7 +101,6 @@
     addMarker: (data) => FirebaseModule.markersRef.add(data),
     updateMarker: (id, data) => FirebaseModule.markersRef.doc(id).update(data),
     deleteMarker: (id) => FirebaseModule.markersRef.doc(id).delete(),
-    // Función para restaurar un marcador específico usando su ID y datos
     restoreMarker: (id, data) => FirebaseModule.markersRef.doc(id).set(data)
   };
 
@@ -122,10 +130,13 @@
                 `<option value="${key}" ${selectedValue === key ? 'selected' : ''}>${value.label}</option>`
             ).join('');
 
+        // Se añade el campo de dirección
         return `
             <div>
               <strong>Nombre:</strong>
-              <input type="text" id="name-${id}" class="popup-input" value="${data.name}" placeholder="Nombre del lugar">
+              <input type="text" id="name-${id}" class="popup-input" value="${data.name || ''}" placeholder="Nombre del lugar">
+              <strong>Dirección:</strong>
+              <input type="text" id="address-${id}" class="popup-input" value="${data.address || ''}" placeholder="Dirección...">
               <strong>Tipo:</strong>
               <select id="type-${id}" class="popup-select">${createOptions(CONFIG.markers.types, data.type)}</select>
               <strong>Plan de Evacuación:</strong>
@@ -135,21 +146,22 @@
             </div>`;
     },
     renderMarker(id, data) {
-      if (!data.lat || !data.lng) return; // Evita errores si faltan coordenadas
+      if (!data.lat || !data.lng) return;
       const icon = this.createIcon(data);
       const marker = L.marker([data.lat, data.lng], { icon, draggable: !!state.currentUser })
         .addTo(state.markersLayer);
 
       if (state.currentUser) {
         marker.bindPopup(this.createPopupContent(id, data));
-        marker.on('dragend', (event) => {
+        marker.on('dragend', async (event) => {
           const { lat, lng } = event.target.getLatLng();
-          FirebaseModule.updateMarker(id, { lat, lng })
+          const address = await Utils.getAddressFromCoordinates(lat, lng); // Obtener nueva dirección al arrastrar
+          FirebaseModule.updateMarker(id, { lat, lng, address })
             .catch(() => Utils.showNotification("No se pudo mover el marcador.", "error"));
         });
       } else {
         const statusLabel = CONFIG.markers.statuses[data.status]?.label || 'Desconocido';
-        marker.bindPopup(`<b>${data.name}</b><br>Estado: ${statusLabel}`);
+        marker.bindPopup(`<b>${data.name}</b><br><small>${data.address || ''}</small><br>Estado: ${statusLabel}`);
       }
       state.localMarkers[id] = marker;
     },
@@ -159,9 +171,22 @@
         delete state.localMarkers[id];
       }
     },
+    // FUNCIÓN MEJORADA: Actualiza el marcador sin eliminarlo y volverlo a crear
     updateMarker(id, data) {
-      this.removeMarker(id);
-      this.renderMarker(id, data);
+        const marker = state.localMarkers[id];
+        if (!marker) { // Si por alguna razón el marcador no existe, lo renderiza
+            this.renderMarker(id, data);
+            return;
+        }
+        
+        // Actualiza el ícono y el popup del marcador existente
+        marker.setIcon(this.createIcon(data));
+        if (state.currentUser) {
+            marker.setPopupContent(this.createPopupContent(id, data));
+        } else {
+            const statusLabel = CONFIG.markers.statuses[data.status]?.label || 'Desconocido';
+            marker.setPopupContent(`<b>${data.name}</b><br><small>${data.address || ''}</small><br>Estado: ${statusLabel}`);
+        }
     },
     reloadAllMarkers() {
         state.markersLayer.clearLayers();
@@ -173,18 +198,13 @@
         });
     },
     setupEventListeners() {
-        // Usar delegación de eventos en el mapa para manejar clicks en popups
         state.map.on('popupopen', (e) => {
             const popupNode = e.popup.getElement();
             const saveBtn = popupNode.querySelector('.save');
             const deleteBtn = popupNode.querySelector('.delete');
 
-            if (saveBtn) {
-                saveBtn.onclick = () => MarkersModule.saveMarker(saveBtn.dataset.id);
-            }
-            if (deleteBtn) {
-                deleteBtn.onclick = () => MarkersModule.deleteMarker(deleteBtn.dataset.id);
-            }
+            if (saveBtn) saveBtn.onclick = () => MarkersModule.saveMarker(saveBtn.dataset.id);
+            if (deleteBtn) deleteBtn.onclick = () => MarkersModule.deleteMarker(deleteBtn.dataset.id);
         });
     }
   };
@@ -200,7 +220,7 @@
       FirebaseModule.onAuthStateChanged(user => {
         state.currentUser = user;
         this.updateUI(user);
-        MapModule.reloadAllMarkers(); // Recargar marcadores para aplicar permisos
+        MapModule.reloadAllMarkers();
       });
     },
     updateUI(user) {
@@ -231,25 +251,25 @@
           const doc = change.doc;
           const data = doc.data();
           
-          // Guardar datos del marcador eliminado para la función "deshacer"
           if (change.type === 'removed') {
               state.lastDeleted = { id: doc.id, data: data };
               UI.undoBtn.style.display = 'block';
-              setTimeout(() => { UI.undoBtn.style.display = 'none'; }, 6000); // Ocultar botón después de 6s
+              setTimeout(() => { UI.undoBtn.style.display = 'none'; }, 6000);
           }
 
-          // Actualizar el mapa
           if (change.type === 'added') MapModule.renderMarker(doc.id, data);
           if (change.type === 'modified') MapModule.updateMarker(doc.id, data);
           if (change.type === 'removed') MapModule.removeMarker(doc.id);
         });
       });
     },
-    addNewMarker() {
+    async addNewMarker() {
       if (!state.currentUser) return;
       const { lat, lng } = state.map.getCenter();
+      const address = await Utils.getAddressFromCoordinates(lat, lng); // Obtener dirección para el nuevo marcador
       const newMarkerData = {
         name: "Nuevo Lugar",
+        address: address, // Guardar dirección
         type: "other",
         status: "to_verify",
         lat,
@@ -263,6 +283,7 @@
     },
     saveMarker(id) {
       const name = document.getElementById(`name-${id}`).value;
+      const address = document.getElementById(`address-${id}`).value; // Leer dirección del input
       const type = document.getElementById(`type-${id}`).value;
       const status = document.getElementById(`status-${id}`).value;
 
@@ -271,7 +292,7 @@
         return;
       }
 
-      const updatedData = { name, type, status };
+      const updatedData = { name, address, type, status }; // Incluir dirección al guardar
       FirebaseModule.updateMarker(id, updatedData)
         .then(() => {
           state.map.closePopup();
@@ -280,7 +301,6 @@
         .catch(() => Utils.showNotification("Error al guardar.", "error"));
     },
     deleteMarker(id) {
-      // Usar un modal personalizado en un proyecto real
       if (window.confirm("¿Estás seguro de que quieres eliminar este marcador?")) {
         FirebaseModule.deleteMarker(id)
           .then(() => {
