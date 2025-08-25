@@ -297,4 +297,15 @@ body {
   #top-bar h2 span {
     display: none; /* Oculta el texto en la barra superior en pantallas pequeñas */
   }
+  /* === POPUP DEL MAPA (Estilos Adicionales) === */
+.leaflet-popup-content b {
+  font-size: 1.05em;
+}
+
+.leaflet-popup-content small {
+  color: #555;
+  line-height: 1.4;
+  display: inline-block;
+  margin: 2px 0;
+}
 }
