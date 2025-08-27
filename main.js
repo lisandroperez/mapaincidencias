@@ -39,7 +39,8 @@
     map: null,
     markersLayer: null,
     localMarkers: {},
-    lastDeleted: null
+    lastDeleted: null,
+    editMode: false // Nuevo estado para el modo edición
   };
 
   // --- REFERENCIAS A ELEMENTOS DEL DOM ---
@@ -47,6 +48,7 @@
     loginBtn: document.getElementById('loginBtn'),
     logoutBtn: document.getElementById('logoutBtn'),
     addMarkerBtn: document.getElementById('addMarkerBtn'),
+    editModeBtn: document.getElementById('editModeBtn'), // Nueva referencia
     undoBtn: document.getElementById('undoBtn'),
     userInfo: document.getElementById('user-info'),
     mapContainer: document.getElementById('map'),
@@ -108,7 +110,20 @@
   const MapModule = {
     init() {
       state.map = L.map(UI.mapContainer).setView(CONFIG.map.initialCoords, CONFIG.map.initialZoom);
-      L.tileLayer(CONFIG.map.tileLayerURL, { attribution: CONFIG.map.attribution }).addTo(state.map);
+
+      const callejeroLayer = L.tileLayer(CONFIG.map.tileLayerURL, { attribution: CONFIG.map.attribution });
+      const topoLayer = L.tileLayer('https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png', {
+        attribution: 'Map data: &copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors, <a href="http://viewfinderpanoramas.org">SRTM</a> | Map style: &copy; <a href="https://opentopomap.org">OpenTopoMap</a> (<a href="https://creativecommons.org/licenses/by-sa/3.0/">CC-BY-SA</a>)'
+      });
+
+      const baseLayers = {
+        "Callejero": callejeroLayer,
+        "Topográfico": topoLayer
+      };
+
+      callejeroLayer.addTo(state.map); // Capa por defecto
+      L.control.layers(baseLayers).addTo(state.map);
+
       state.markersLayer = L.layerGroup().addTo(state.map);
       this.setupEventListeners();
     },
@@ -148,14 +163,19 @@
     renderMarker(id, data) {
       if (!data.lat || !data.lng) return;
       const icon = this.createIcon(data);
-      const marker = L.marker([data.lat, data.lng], { icon, draggable: !!state.currentUser })
-        .addTo(state.markersLayer);
+      
+      // Hacer el marcador arrastrable solo si el usuario está autenticado
+      // pero el modo edición controlará esto dinámicamente
+      const marker = L.marker([data.lat, data.lng], { 
+        icon, 
+        draggable: !!state.currentUser && state.editMode 
+      }).addTo(state.markersLayer);
 
       if (state.currentUser) {
         marker.bindPopup(this.createPopupContent(id, data));
         marker.on('dragend', async (event) => {
           const { lat, lng } = event.target.getLatLng();
-          const address = await Utils.getAddressFromCoordinates(lat, lng); // Obtener nueva dirección al arrastrar
+          const address = await Utils.getAddressFromCoordinates(lat, lng);
           FirebaseModule.updateMarker(id, { lat, lng, address })
             .catch(() => Utils.showNotification("No se pudo mover el marcador.", "error"));
         });
@@ -164,6 +184,33 @@
         marker.bindPopup(`<b>${data.name}</b><br><small>${data.address || ''}</small><br>Estado: ${statusLabel}`);
       }
       state.localMarkers[id] = marker;
+    },
+    
+    // Nueva función para alternar el modo edición
+    toggleEditMode() {
+      state.editMode = !state.editMode;
+      
+      // Actualizar todos los marcadores existentes
+      Object.values(state.localMarkers).forEach(marker => {
+        if (state.currentUser) {
+          marker.dragging[state.editMode ? 'enable' : 'disable']();
+        }
+      });
+      
+      // Actualizar UI
+      UI.editModeBtn.innerHTML = state.editMode ? 
+        '<i class="fa-solid fa-check"></i> Finalizar Edición' : 
+        '<i class="fa-solid fa-pen"></i> Editar';
+      
+      UI.editModeBtn.style.backgroundColor = state.editMode ? 
+        'var(--success-color)' : 'var(--primary-color)';
+      
+      Utils.showNotification(
+        state.editMode ? 
+        "Modo edición activado. Puedes arrastrar los marcadores." : 
+        "Modo edición desactivado.",
+        state.editMode ? "info" : "success"
+      );
     },
     removeMarker(id) {
       if (state.localMarkers[id]) {
@@ -217,8 +264,14 @@
       });
       UI.logoutBtn.addEventListener('click', FirebaseModule.logout);
       
+      // Agregar event listener para el botón de edición
+      UI.editModeBtn.addEventListener('click', () => {
+        MapModule.toggleEditMode();
+      });
+      
       FirebaseModule.onAuthStateChanged(user => {
         state.currentUser = user;
+        state.editMode = false; // Resetear modo edición al cambiar usuario
         this.updateUI(user);
         MapModule.reloadAllMarkers();
       });
@@ -229,11 +282,18 @@
         UI.loginBtn.style.display = 'none';
         UI.logoutBtn.style.display = 'block';
         UI.addMarkerBtn.disabled = false;
+        UI.editModeBtn.disabled = false;
+        
+        // Restablecer apariencia del botón de edición
+        UI.editModeBtn.innerHTML = '<i class="fa-solid fa-pen"></i> Editar';
+        UI.editModeBtn.style.backgroundColor = 'var(--primary-color)';
       } else {
         UI.userInfo.textContent = '';
         UI.loginBtn.style.display = 'block';
         UI.logoutBtn.style.display = 'none';
         UI.addMarkerBtn.disabled = true;
+        UI.editModeBtn.disabled = true;
+        state.editMode = false;
       }
     }
   };
