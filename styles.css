@@ -162,7 +162,7 @@ body {
   flex-shrink: 0;
 }
 
-.legend-fa-icon {
+.legend-fa-.icon {
   font-size: 18px;
   width: 20px;
   text-align: center;
@@ -308,4 +308,14 @@ body {
   display: inline-block;
   margin: 2px 0;
 }
+}
+
+/* Estilo para el botón de edición activo/inactivo */
+#editModeBtn.active {
+  background-color: var(--success-color);
+}
+
+/* Asegurar que los botones en el panel lateral tengan buen espaciado */
+#legend-panel button {
+  margin-bottom: 10px;
 }
