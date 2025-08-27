@@ -12,10 +12,14 @@
       appId: "1:941318438590:web:6b042dfce7f8d515c7a8ef"
     },
     map: {
-      initialCoords: [-26.819, -65.305], // Centro en Yerba Buena
+      initialCoords: [-26.819, -65.305],
       initialZoom: 14,
       tileLayerURL: 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
-      attribution: '© OpenStreetMap contributors'
+      attribution: '© OpenStreetMap contributors',
+      minZoom: 10,       // Zoom mínimo donde los marcadores son totalmente visibles
+      maxZoom: 18,       // Zoom máximo
+      fadeStartZoom: 13, // Zoom donde comienza a desvanecerse
+      fadeEndZoom: 10    // Zoom donde están completamente transparentes
     },
     markers: {
       types: {
@@ -110,23 +114,78 @@
   const MapModule = {
     init() {
       state.map = L.map(UI.mapContainer).setView(CONFIG.map.initialCoords, CONFIG.map.initialZoom);
-
+  
       const callejeroLayer = L.tileLayer(CONFIG.map.tileLayerURL, { attribution: CONFIG.map.attribution });
       const topoLayer = L.tileLayer('https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png', {
         attribution: 'Map data: &copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors, <a href="http://viewfinderpanoramas.org">SRTM</a> | Map style: &copy; <a href="https://opentopomap.org">OpenTopoMap</a> (<a href="https://creativecommons.org/licenses/by-sa/3.0/">CC-BY-SA</a>)'
       });
-
+  
       const baseLayers = {
         "Callejero": callejeroLayer,
         "Topográfico": topoLayer
       };
-
+  
       callejeroLayer.addTo(state.map); // Capa por defecto
       L.control.layers(baseLayers).addTo(state.map);
-
-      state.markersLayer = L.layerGroup().addTo(state.map);
+  
+      // En lugar de usar L.layerGroup(), usar MarkerClusterGroup para agrupamiento
+      state.markersLayer = L.markerClusterGroup({
+        chunkedLoading: true,
+        maxClusterRadius: 80, // Radio para agrupar marcadores
+        spiderfyOnMaxZoom: true,
+        showCoverageOnHover: false,
+        zoomToBoundsOnClick: true,
+        // Personalizar los clusters
+        iconCreateFunction: function(cluster) {
+          const count = cluster.getChildCount();
+          let color = '#007bff';
+          
+          if (count > 20) color = '#dc3545';
+          else if (count > 10) color = '#ffc107';
+          else if (count > 5) color = '#28a745';
+          
+          return L.divIcon({
+            html: `<div style="background-color: ${color}; width: 40px; height: 40px; border-radius: 50%; display: flex; align-items: center; justify-content: center; color: white; font-weight: bold; border: 3px solid white; box-shadow: 0 0 10px rgba(0,0,0,0.3);">${count}</div>`,
+            className: 'marker-cluster-custom',
+            iconSize: L.point(40, 40)
+          });
+        }
+      });
+      
+      state.map.addLayer(state.markersLayer);
+      
       this.setupEventListeners();
+
+      // Agregar event listener para cambios de zoom
+      state.map.on('zoomend', this.adjustMarkersOpacity.bind(this));
+      
+      // Ajustar opacidad inicial
+      this.adjustMarkersOpacity();
     },
+    
+    // Nueva función para ajustar opacidad según el zoom
+    adjustMarkersOpacity() {
+      const currentZoom = state.map.getZoom();
+      const { fadeStartZoom, fadeEndZoom } = CONFIG.map;
+      
+      let opacity = 1;
+      
+      if (currentZoom <= fadeStartZoom && currentZoom >= fadeEndZoom) {
+        opacity = (currentZoom - fadeEndZoom) / (fadeStartZoom - fadeEndZoom);
+      } else if (currentZoom < fadeEndZoom) {
+        opacity = 0.1;
+      }
+      
+      // Aplicar opacidad a marcadores individuales (no clusters)
+      Object.values(state.localMarkers).forEach(marker => {
+        const element = marker.getElement();
+        if (element && !element.closest('.marker-cluster')) {
+          element.style.opacity = opacity;
+          element.style.transition = 'opacity 0.3s ease';
+        }
+      });
+    },
+
     createIcon(data) {
       const type = CONFIG.markers.types[data.type] || CONFIG.markers.types.other;
       const status = CONFIG.markers.statuses[data.status] || { color: '#808080' };
@@ -163,13 +222,15 @@
     renderMarker(id, data) {
       if (!data.lat || !data.lng) return;
       const icon = this.createIcon(data);
-      
-      // Hacer el marcador arrastrable solo si el usuario está autenticado
-      // pero el modo edición controlará esto dinámicamente
       const marker = L.marker([data.lat, data.lng], { 
         icon, 
         draggable: !!state.currentUser && state.editMode 
       }).addTo(state.markersLayer);
+
+      // Aplicar opacidad inicial basada en el zoom actual
+      setTimeout(() => {
+        this.adjustMarkersOpacity();
+      }, 100);
 
       if (state.currentUser) {
         marker.bindPopup(this.createPopupContent(id, data));
@@ -189,14 +250,14 @@
     // Nueva función para alternar el modo edición
     toggleEditMode() {
       state.editMode = !state.editMode;
-      
-      // Actualizar todos los marcadores existentes
-      Object.values(state.localMarkers).forEach(marker => {
-        if (state.currentUser) {
-          marker.dragging[state.editMode ? 'enable' : 'disable']();
-        }
-      });
-      
+
+      // Forzamos la recarga de todos los marcadores.
+      // Esto asegura que el estado 'draggable' se aplique correctamente
+      // a todos los marcadores, incluso a los que están agrupados (cluster).
+      // Nota: Esto recarga los datos desde Firebase, lo cual puede no ser ideal
+      // para el rendimiento si hay muchos marcadores.
+      this.reloadAllMarkers();
+
       // Actualizar UI
       UI.editModeBtn.innerHTML = state.editMode ? 
         '<i class="fa-solid fa-check"></i> Finalizar Edición' : 
