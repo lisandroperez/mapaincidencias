@@ -174,7 +174,8 @@ body {
   text-align: center;
   width: 150px;
   position: relative;
-  left: -75px; /* Centra el contenedor */
+  left: -75px;
+  transition: opacity 0.3s ease; /* Transición suave para opacidad */
 }
 
 .marker-label {
@@ -210,6 +211,7 @@ body {
   box-shadow: 0 2px 5px rgba(0,0,0,0.3);
   margin: 0 auto;
   cursor: pointer;
+  transition: opacity 0.3s ease; /* Transición suave para opacidad */
 }
 
 .marker-icon-background i {
@@ -308,6 +310,15 @@ body {
   display: inline-block;
   margin: 2px 0;
 }
+
+  .marker-icon-background {
+    width: 28px;
+    height: 28px;
+  }
+  
+  .marker-icon-background i {
+    font-size: 14px;
+  }
 }
 
 /* Estilo para el botón de edición activo/inactivo */
@@ -318,4 +329,9 @@ body {
 /* Asegurar que los botones en el panel lateral tengan buen espaciado */
 #legend-panel button {
   margin-bottom: 10px;
+}
+
+/* Asegurar que los popups mantengan su opacidad independientemente del marcador */
+.leaflet-popup-content-wrapper {
+  opacity: 1 !important;
 }
